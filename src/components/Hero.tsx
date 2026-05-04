@@ -62,11 +62,11 @@ export default function Hero() {
             </h1>
             
             <p className="text-lg text-primary-charcoal/80 dark:text-gray-300 max-w-xl font-inter leading-relaxed">
-              Platform komunitas olahraga bareng untuk hidup lebih berkualitas. Ayo olahraga bareng dan saling mengenal.
+              Komunitas olahraga bareng untuk hidup lebih berkualitas. Ayo olahraga bareng dan saling mengenal.
             </p>
             
             <div className="flex pt-4">
-              <div className="bg-primary-brown text-white pl-8 pr-6 py-3.5 rounded-full font-medium shadow-lg flex items-center gap-4">
+              <div className="bg-primary-brown dark:bg-[#2A2A2A] text-white pl-8 pr-6 py-3.5 rounded-full font-medium shadow-lg flex items-center gap-4">
                 <span>Join with us</span>
                 <div className="flex items-center gap-3 border-l border-white/30 pl-4">
                   <a href="https://www.instagram.com/altruistsehat/" target="_blank" rel="noopener noreferrer" className="hover:text-white/80 transition-colors hover:scale-110 transform">

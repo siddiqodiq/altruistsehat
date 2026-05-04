@@ -43,7 +43,7 @@ export default function Navbar() {
 
   const navLinks = [
     { name: "Beranda", href: "#" },
-    { name: "Program", href: "#program" },
+    { name: "Kegiatan", href: "#program" },
   ];
 
   const currentLogo = theme === "dark" ? logoPutih : logoImg;
@@ -73,15 +73,23 @@ export default function Navbar() {
               </a>
             ))}
             
-            <button 
-              onClick={toggleTheme} 
-              className="p-2 rounded-full hover:bg-secondary-sand/50 dark:hover:bg-zinc-800 text-primary-charcoal dark:text-gray-300 transition-colors"
+            <button
+              onClick={toggleTheme}
+              className="relative flex items-center w-[60px] h-8 bg-[#f4f6f9] dark:bg-[#0f111a] rounded-full p-1 transition-colors duration-300 shadow-inner"
               aria-label="Toggle Dark Mode"
             >
-              {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              <div 
+                className={`absolute w-6 h-6 rounded-full transition-all duration-300 ease-in-out ${
+                  theme === "dark" ? "translate-x-[28px] bg-[#2d324f]" : "translate-x-0 bg-[#e2e8f0]"
+                }`}
+              />
+              <div className="relative flex justify-between w-full px-[3px] z-10 pointer-events-none">
+                <Sun className={`w-[18px] h-[18px] transition-colors duration-300 ${theme === "dark" ? "text-slate-500" : "text-slate-800"}`} />
+                <Moon className={`w-[18px] h-[18px] transition-colors duration-300 ${theme === "dark" ? "text-white" : "text-slate-400"}`} />
+              </div>
             </button>
 
-            <div className="bg-primary-brown text-white pl-6 pr-4 py-2 rounded-full shadow-sm flex items-center gap-3">
+            <div className="bg-primary-brown dark:bg-[#2A2A2A] text-white pl-6 pr-4 py-2 rounded-full shadow-sm flex items-center gap-3">
               <span className="text-sm font-medium">Join us</span>
               <div className="flex items-center gap-2 border-l border-white/30 pl-3">
                 <a href="https://www.instagram.com/altruistsehat/" target="_blank" rel="noopener noreferrer" className="hover:text-white/80 transition-colors hover:scale-110 transform">
@@ -96,11 +104,20 @@ export default function Navbar() {
 
           {/* Mobile Menu Button */}
           <div className="md:hidden flex items-center gap-4">
-            <button 
-              onClick={toggleTheme} 
-              className="p-2 rounded-full hover:bg-secondary-sand/50 dark:hover:bg-zinc-800 text-primary-charcoal dark:text-gray-300 transition-colors"
+            <button
+              onClick={toggleTheme}
+              className="relative flex items-center w-[60px] h-8 bg-[#f4f6f9] dark:bg-[#0f111a] rounded-full p-1 transition-colors duration-300 shadow-inner"
+              aria-label="Toggle Dark Mode"
             >
-              {theme === "dark" ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
+              <div 
+                className={`absolute w-6 h-6 rounded-full transition-all duration-300 ease-in-out ${
+                  theme === "dark" ? "translate-x-[28px] bg-[#2d324f]" : "translate-x-0 bg-[#e2e8f0]"
+                }`}
+              />
+              <div className="relative flex justify-between w-full px-[3px] z-10 pointer-events-none">
+                <Sun className={`w-[18px] h-[18px] transition-colors duration-300 ${theme === "dark" ? "text-slate-500" : "text-slate-800"}`} />
+                <Moon className={`w-[18px] h-[18px] transition-colors duration-300 ${theme === "dark" ? "text-white" : "text-slate-400"}`} />
+              </div>
             </button>
             <button
               onClick={() => setIsOpen(!isOpen)}
@@ -129,7 +146,7 @@ export default function Navbar() {
                 {link.name}
               </a>
             ))}
-            <div className="w-full mt-4 bg-primary-brown text-white px-6 py-3 rounded-full font-medium flex justify-between items-center">
+            <div className="w-full mt-4 bg-primary-brown dark:bg-[#2A2A2A] text-white px-6 py-3 rounded-full font-medium flex justify-between items-center">
               <span>Join us</span>
               <div className="flex items-center gap-3 border-l border-white/30 pl-4">
                 <a href="https://www.instagram.com/altruistsehat/" target="_blank" rel="noopener noreferrer" className="hover:text-white/80 transition-colors">

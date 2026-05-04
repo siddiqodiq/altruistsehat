@@ -14,9 +14,17 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setMounted(true);
     const storedTheme = localStorage.getItem("theme");
-    if (storedTheme === "dark" || (!storedTheme && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+    // Default to light mode, only use dark mode if user explicitly chose it previously
+    if (storedTheme === "dark") {
       setTheme("dark");
       document.documentElement.classList.add("dark");
+    } else {
+      // Ensure we start light if not explicitly set to dark
+      setTheme("light");
+      document.documentElement.classList.remove("dark");
+      if (!storedTheme) {
+        localStorage.setItem("theme", "light");
+      }
     }
   }, []);
 

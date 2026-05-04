@@ -4,16 +4,16 @@ import { motion } from "framer-motion";
 
 const timelineData = [
   // Event Bersama
-  { title: "LINTAS TEKNOLOGI SOLUTION DAY 8th Edition", date: "29 November 2025", type: "Event Bersama", color: "bg-primary-brown text-white" },
-  { title: "AMR Runs", date: "30 November 2025", type: "Event Bersama", color: "bg-primary-brown text-white" },
-  { title: "Topscore Fun Run 7K", date: "3 Desember 2025", type: "Event Bersama", color: "bg-primary-brown text-white" },
-  { title: "Jekate Running Series 2025", date: "4 Desember 2025", type: "Event Bersama", color: "bg-primary-brown text-white" },
-  { title: "Universal BPR Fun Run 5k", date: "10 Januari 2026", type: "Event Bersama", color: "bg-primary-brown text-white" },
-  { title: "RS Puri Cinere Fun Run 5K", date: "25 Januari 2026", type: "Event Bersama", color: "bg-primary-brown text-white" },
-  { title: "Enervon Nusantara Run 5K", date: "8 Februari 2026", type: "Event Bersama", color: "bg-primary-brown text-white" },
-  { title: "Kolaboran 2025", date: "14 Februari 2026", type: "Event Bersama", color: "bg-primary-brown text-white" },
-  { title: "Rope&Run Challenge", date: "19 April 2026", type: "Event Bersama", color: "bg-primary-brown text-white" },
-  { title: "Tring Golden Run", date: "26 April 2026", type: "Event Bersama", color: "bg-primary-brown text-white" },
+  { title: "LINTAS TEKNOLOGI SOLUTION DAY 8th Edition", date: "29 November 2025", type: "Event Bersama", color: "bg-primary-brown dark:bg-[#2A2A2A] text-white" },
+  { title: "AMR Runs", date: "30 November 2025", type: "Event Bersama", color: "bg-primary-brown dark:bg-[#2A2A2A] text-white" },
+  { title: "Topscore Fun Run 7K", date: "3 Desember 2025", type: "Event Bersama", color: "bg-primary-brown dark:bg-[#2A2A2A] text-white" },
+  { title: "Jekate Running Series 2025", date: "4 Desember 2025", type: "Event Bersama", color: "bg-primary-brown dark:bg-[#2A2A2A] text-white" },
+  { title: "Universal BPR Fun Run 5k", date: "10 Januari 2026", type: "Event Bersama", color: "bg-primary-brown dark:bg-[#2A2A2A] text-white" },
+  { title: "RS Puri Cinere Fun Run 5K", date: "25 Januari 2026", type: "Event Bersama", color: "bg-primary-brown dark:bg-[#2A2A2A] text-white" },
+  { title: "Enervon Nusantara Run 5K", date: "8 Februari 2026", type: "Event Bersama", color: "bg-primary-brown dark:bg-[#2A2A2A] text-white" },
+  { title: "Kolaboran 2026", date: "14 Februari 2026", type: "Event Bersama", color: "bg-primary-brown dark:bg-[#2A2A2A] text-white" },
+  { title: "Rope&Run Challenge", date: "19 April 2026", type: "Event Bersama", color: "bg-primary-brown dark:bg-[#2A2A2A] text-white" },
+  { title: "Tring Golden Run", date: "26 April 2026", type: "Event Bersama", color: "bg-primary-brown dark:bg-[#2A2A2A] text-white" },
 
   // Olahraga Rutin
   { title: "Lari bareng", date: "Setiap minggu", type: "Olahraga Rutin", color: "bg-secondary-teal text-primary-green" },
