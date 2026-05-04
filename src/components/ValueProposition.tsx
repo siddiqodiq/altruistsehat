@@ -56,7 +56,7 @@ const values = [
   },
   {
     title: "And Others",
-    description: "Berbagai pilihan cabang olahraga lainnya yang siap mendukung gaya hidup sehat Anda.",
+    description: "Olahraga lainnya, yang penting ada orangnya. Gas kita mainkan",
     icon: <Plus className="w-8 h-8 text-secondary-clay" strokeWidth={1.5} />,
   },
 ];
@@ -89,7 +89,7 @@ export default function ValueProposition() {
             Olahraga Kami
           </h2>
           <p className="text-lg text-primary-charcoal/70 dark:text-gray-300 font-inter">
-            Temukan komunitas dan wadah yang tepat untuk cabang olahraga favorit Anda.
+            Ayo olahraga bareng supaya sehat, berikut olahraga yang sering kami lakukan
           </p>
         </div>
 
