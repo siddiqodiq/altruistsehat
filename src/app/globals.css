@@ -1,0 +1,26 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-primary-brown: #5A2E17;
+  --color-primary-green: #5E7A5E;
+  --color-primary-beige: #F5F1EB;
+  --color-primary-charcoal: #1F1F1F;
+  
+  --color-secondary-teal: #7EC8C1;
+  --color-secondary-sand: #E6D7C2;
+  --color-secondary-clay: #C49A7C;
+  --color-secondary-sky: #B7D6E6;
+
+  --font-poppins: var(--font-poppins);
+  --font-inter: var(--font-inter);
+}
+
+@layer base {
+  html, body {
+    @apply bg-primary-beige dark:bg-[#121212] text-primary-charcoal dark:text-gray-100 font-inter scroll-smooth transition-colors duration-300;
+  }
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-poppins;
+  }
+}
