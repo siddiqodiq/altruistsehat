@@ -9,23 +9,18 @@ const ThemeContext = createContext({
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState("light");
-  const [mounted, setMounted] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
     const storedTheme = localStorage.getItem("theme");
-    // Default to light mode, only use dark mode if user explicitly chose it previously
-    if (storedTheme === "dark") {
-      setTheme("dark");
-      document.documentElement.classList.add("dark");
-    } else {
-      // Ensure we start light if not explicitly set to dark
-      setTheme("light");
-      document.documentElement.classList.remove("dark");
-      if (!storedTheme) {
-        localStorage.setItem("theme", "light");
-      }
+    const nextTheme = storedTheme === "dark" ? "dark" : "light";
+
+    document.documentElement.classList.toggle("dark", nextTheme === "dark");
+    if (!storedTheme) {
+      localStorage.setItem("theme", "light");
     }
+
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- Theme is hydrated from localStorage after mount.
+    setTheme(nextTheme);
   }, []);
 
   const toggleTheme = () => {
@@ -39,10 +34,6 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem("theme", "light");
     }
   };
-
-  if (!mounted) {
-    return <>{children}</>;
-  }
 
   return <ThemeContext.Provider value={{ theme, toggleTheme }}>{children}</ThemeContext.Provider>;
 }

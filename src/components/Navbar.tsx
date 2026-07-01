@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Menu, X, Sun, Moon } from "lucide-react";
 import { motion } from "framer-motion";
 import Image from "next/image";
+import Link from "next/link";
 import logoImg from "../assets/LOGO.webp";
 import logoPutih from "../assets/logoputih.webp";
 import { useTheme } from "@/components/ThemeContext";
@@ -42,8 +43,9 @@ export default function Navbar() {
   const { theme, toggleTheme } = useTheme();
 
   const navLinks = [
-    { name: "Beranda", href: "#" },
-    { name: "Kegiatan", href: "#program" },
+    { name: "Beranda", href: "/" },
+    { name: "Kegiatan", href: "/#program" },
+    { name: "Leaderboard", href: "/leaderboard" },
   ];
 
   const currentLogo = theme === "dark" ? logoPutih : logoImg;
@@ -64,13 +66,13 @@ export default function Navbar() {
           {/* Desktop Menu */}
           <div className="hidden md:flex items-center space-x-8">
             {navLinks.map((link) => (
-              <a
+              <Link
                 key={link.name}
                 href={link.href}
                 className="text-primary-charcoal dark:text-gray-300 hover:text-primary-brown dark:hover:text-secondary-sand font-medium transition-colors"
               >
                 {link.name}
-              </a>
+              </Link>
             ))}
             
             <button
@@ -138,13 +140,14 @@ export default function Navbar() {
         >
           <div className="px-4 pt-2 pb-6 space-y-2">
             {navLinks.map((link) => (
-              <a
+              <Link
                 key={link.name}
                 href={link.href}
+                onClick={() => setIsOpen(false)}
                 className="block px-3 py-2 text-base font-medium text-primary-charcoal dark:text-gray-300 hover:text-primary-brown dark:hover:text-secondary-sand hover:bg-secondary-sand/30 dark:hover:bg-zinc-800 rounded-md"
               >
                 {link.name}
-              </a>
+              </Link>
             ))}
             <div className="w-full mt-4 bg-primary-brown dark:bg-[#2A2A2A] text-white px-6 py-3 rounded-full font-medium flex justify-between items-center">
               <span>Join us</span>
