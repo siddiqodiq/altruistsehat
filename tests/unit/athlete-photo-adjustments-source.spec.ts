@@ -43,6 +43,20 @@ test("athlete API routes accept and return podium photo adjustments", () => {
   expect(lookupRoute).toContain("athleteSelectColumns");
 });
 
+test("athlete photo payloads can explicitly clear stored photo URLs", () => {
+  const apiSource = source("src/lib/athletes/api.ts");
+  const appSource = source("src/components/athletes/AthleteDatabaseApp.tsx");
+  const createRoute = source("src/app/api/athletes/route.ts");
+  const updateRoute = source("src/app/api/athletes/[id]/route.ts");
+
+  expect(apiSource).toContain("profilePhotoUrl?: string | null");
+  expect(apiSource).toContain("podiumPhotoUrl?: string | null");
+  expect(appSource).toContain("profilePhotoUrl: form.profilePhotoUrl.trim() || null");
+  expect(appSource).toContain("podiumPhotoUrl: form.podiumPhotoUrl.trim() || null");
+  expect(createRoute).toContain("z.string().url().nullable().optional()");
+  expect(updateRoute).toContain("z.string().url().nullable().optional()");
+});
+
 test("athlete sport photo saves fail loudly when the Supabase sport column is missing", () => {
   const createRoute = source("src/app/api/athletes/route.ts");
   const updateRoute = source("src/app/api/athletes/[id]/route.ts");
@@ -57,7 +71,7 @@ test("athlete sport photo saves fail loudly when the Supabase sport column is mi
   expect(updateRoute).toContain("{ status: 409 }");
 });
 
-test("athlete admin exposes sport-specific podium photo slots with default podium fallback", () => {
+test("athlete admin exposes sport-specific podium photo slots without fallback copy", () => {
   const appSource = source("src/components/athletes/AthleteDatabaseApp.tsx");
 
   expect(appSource).toContain("Sport Podium Photos");
@@ -66,8 +80,9 @@ test("athlete admin exposes sport-specific podium photo slots with default podiu
   expect(appSource).toContain("sportPodiumPreviewUrls");
   expect(appSource).toContain("pendingSportPodiumFiles");
   expect(appSource).toContain("handleSportPodiumImageSelection");
-  expect(appSource).toContain("handleSportPodiumUrlChange");
-  expect(appSource).toContain("Default podium photo is used when a sport slot is empty.");
+  expect(appSource).toContain("handleClearSportPodiumPhoto");
+  expect(appSource).not.toContain("Default podium photo is used when a sport slot is empty.");
+  expect(appSource).not.toContain("Fallback");
 });
 
 test("athlete admin exposes persistent podium presets for every story layout", () => {
@@ -85,20 +100,19 @@ test("athlete podium preset previews reflect compact export row height differenc
 
   expect(appSource).toContain("compactPresetPreviewHeightPx");
   expect(appSource).toContain("compactExportAthleteCountForLayout");
-  expect(appSource).toContain("compactPhotoBackgroundAdjustmentStyle");
   expect(appSource).toContain("compactPhotoForegroundAdjustmentStyle");
-  expect(appSource).toContain("compactPhotoTreatmentForImage");
   expect(appSource).toContain("compactCutoutBackdropStyle");
-  expect(appSource).toContain("dual-layer-blend-foreground");
-  expect(appSource).toContain("cutout-podium-backdrop");
+  expect(appSource).toContain("medal-backplate-foreground");
   expect(appSource).toContain("data-fit-strategy");
-  expect(appSource).toContain('data-fit-strategy="dual-layer-background-fill"');
-  expect(appSource).toContain('data-image-layer="compact-photo-background"');
   expect(appSource).toContain('data-image-layer="compact-photo-foreground"');
   expect(appSource).toContain("podiumPreviewHasTransparency");
   expect(appSource).toContain("data-export-row-height-preview");
   expect(appSource).toContain("compactZoomMin");
   expect(appSource).toContain("isCompactExportLayoutMode(layoutMode) ? compactZoomMin : 1");
+  expect(appSource).not.toContain("blur-xl");
+  expect(appSource).not.toContain("compactPhotoBackgroundAdjustmentStyle");
+  expect(appSource).not.toContain('data-fit-strategy="dual-layer-background-fill"');
+  expect(appSource).not.toContain('data-image-layer="compact-photo-background"');
   expect(appSource).not.toContain('data-image-layer="portrait-safe-foreground"');
   expect(appSource).not.toContain('data-crop="portrait-safe-foreground"');
   expect(appSource).not.toContain("left-0 z-[1]");

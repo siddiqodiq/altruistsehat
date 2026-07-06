@@ -5,7 +5,6 @@ import {
   compactCutoutBackdropStyle,
   compactExportAthleteCountForLayout,
   compactExportRowHeightPx,
-  compactPhotoBackgroundAdjustmentStyle,
   compactPhotoForegroundAdjustmentStyle,
   compactPhotoTreatmentForImage,
   compactPresetPreviewHeightPx,
@@ -104,16 +103,10 @@ test("full frame photo adjustment style lets compact photos fill the frame", () 
   });
 });
 
-test("compact dual-layer photo styles allow flexible zoom-out while keeping a filled background", () => {
+test("compact foreground photo style allows flexible zoom-out over gradient backplates", () => {
   expect(compactPhotoForegroundAdjustmentStyle({ zoom: 0.8, x: -12, y: 6 })).toEqual({
     objectPosition: "50% 50%",
     transform: "translate(-12%, 6%) scale(0.8)",
-    transformOrigin: "center center",
-  });
-
-  expect(compactPhotoBackgroundAdjustmentStyle({ zoom: 0.8, x: -12, y: 6 })).toEqual({
-    objectPosition: "50% 50%",
-    transform: "scale(1.08)",
     transformOrigin: "center center",
   });
 });

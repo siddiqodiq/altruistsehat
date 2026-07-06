@@ -8,6 +8,10 @@ interface CachedLookup {
   expiresAt: number;
 }
 
+interface AthleteLookupOptions {
+  forceRefresh?: boolean;
+}
+
 const lookupCache = new Map<string, CachedLookup>();
 
 function freshLookup(entry: CachedLookup | undefined, now: number): AthleteRecord | null | undefined {
@@ -22,17 +26,22 @@ export function clearAthleteLookupCache() {
   lookupCache.clear();
 }
 
-export async function lookupAthletesByName(names: string[]): Promise<Map<string, AthleteRecord | null>> {
+export async function lookupAthletesByName(
+  names: string[],
+  options: AthleteLookupOptions = {},
+): Promise<Map<string, AthleteRecord | null>> {
   const now = Date.now();
   const normalizedNames = Array.from(new Set(names.map(normalizeAthleteName).filter(Boolean)));
   const result = new Map<string, AthleteRecord | null>();
   const misses: string[] = [];
 
   normalizedNames.forEach((normalizedName) => {
-    const cached = freshLookup(lookupCache.get(normalizedName), now);
-    if (cached !== undefined) {
-      result.set(normalizedName, cached);
-      return;
+    if (!options.forceRefresh) {
+      const cached = freshLookup(lookupCache.get(normalizedName), now);
+      if (cached !== undefined) {
+        result.set(normalizedName, cached);
+        return;
+      }
     }
 
     misses.push(normalizedName);
@@ -43,6 +52,7 @@ export async function lookupAthletesByName(names: string[]): Promise<Map<string,
   }
 
   const response = await fetch("/api/athletes/lookup", {
+    cache: options.forceRefresh ? "no-store" : "default",
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ names: misses }),

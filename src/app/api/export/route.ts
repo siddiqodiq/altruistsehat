@@ -1,13 +1,20 @@
-import { chromium, type Page } from "playwright";
+import { existsSync, readdirSync } from "node:fs";
+import { homedir, platform } from "node:os";
+import { join } from "node:path";
 import { NextRequest } from "next/server";
+import chromium from "@sparticuz/chromium-min";
+import puppeteer, { type Browser, type Page } from "puppeteer-core";
 import { createExportJob, deleteExportJob } from "@/lib/leaderboard/export-jobs";
 import { ExportRequestSchema } from "@/lib/leaderboard/schema";
 import { OUTPUT_DIMENSIONS } from "@/lib/leaderboard/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 const EXPORT_TIMEOUT_MS = 30_000;
+const DEFAULT_CHROMIUM_PACK_URL =
+  "https://github.com/Sparticuz/chromium/releases/download/v149.0.0/chromium-v149.0.0-pack.x64.tar";
 const NEXT_DEVTOOLS_HIDE_CSS = `
   nextjs-portal,
   [data-nextjs-dev-tools-button],
@@ -51,6 +58,85 @@ function exportLog(step: string, meta?: Record<string, unknown>) {
   console.info("PNG_EXPORT_STEP", { step, ...meta });
 }
 
+function localPlaywrightChromiumCandidates() {
+  const cacheRoot =
+    platform() === "darwin"
+      ? join(homedir(), "Library", "Caches", "ms-playwright")
+      : join(homedir(), ".cache", "ms-playwright");
+
+  if (!existsSync(cacheRoot)) {
+    return [];
+  }
+
+  const browserDirs = readdirSync(cacheRoot, { withFileTypes: true })
+    .filter((entry) => entry.isDirectory() && entry.name.startsWith("chromium-"))
+    .map((entry) => entry.name)
+    .sort((left, right) => right.localeCompare(left, undefined, { numeric: true }));
+
+  return browserDirs.flatMap((browserDir) => {
+    const basePath = join(cacheRoot, browserDir);
+
+    if (platform() === "darwin") {
+      return [
+        join(basePath, "chrome-mac-arm64", "Google Chrome for Testing.app", "Contents", "MacOS", "Google Chrome for Testing"),
+        join(basePath, "chrome-mac", "Google Chrome for Testing.app", "Contents", "MacOS", "Google Chrome for Testing"),
+      ];
+    }
+
+    if (platform() === "win32") {
+      return [join(basePath, "chrome-win", "chrome.exe")];
+    }
+
+    return [join(basePath, "chrome-linux", "chrome")];
+  });
+}
+
+function localChromiumExecutablePath() {
+  const candidates = [
+    process.env.CHROME_EXECUTABLE_PATH,
+    process.env.PUPPETEER_EXECUTABLE_PATH,
+    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+    "/Applications/Chromium.app/Contents/MacOS/Chromium",
+    "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+    "/usr/bin/google-chrome-stable",
+    "/usr/bin/google-chrome",
+    "/usr/bin/chromium-browser",
+    "/usr/bin/chromium",
+    ...localPlaywrightChromiumCandidates(),
+  ];
+
+  return candidates.find((candidate): candidate is string => Boolean(candidate && existsSync(candidate)));
+}
+
+async function launchExportBrowser(dimensions: (typeof OUTPUT_DIMENSIONS)[keyof typeof OUTPUT_DIMENSIONS]): Promise<Browser> {
+  const viewport = {
+    deviceScaleFactor: 1,
+    height: dimensions.height,
+    width: dimensions.width,
+  };
+
+  if (process.env.VERCEL) {
+    const executablePath = await chromium.executablePath(process.env.CHROMIUM_PACK_URL ?? DEFAULT_CHROMIUM_PACK_URL);
+
+    return puppeteer.launch({
+      args: await puppeteer.defaultArgs({ args: chromium.args, headless: "shell" }),
+      defaultViewport: viewport,
+      executablePath,
+      headless: "shell",
+    });
+  }
+
+  const executablePath = localChromiumExecutablePath();
+
+  return puppeteer.launch({
+    args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    channel: executablePath ? undefined : "chrome",
+    defaultViewport: viewport,
+    executablePath,
+    headless: true,
+  });
+}
+
 async function hideNextDevIndicators(page: Page) {
   await page.addStyleTag({ content: NEXT_DEVTOOLS_HIDE_CSS });
   await page.evaluate(() => {
@@ -81,35 +167,32 @@ export async function POST(request: NextRequest) {
   const { format, spec } = parsed.data;
   const dimensions = OUTPUT_DIMENSIONS[format];
   const jobId = createExportJob(spec);
-  let browser: Awaited<ReturnType<typeof chromium.launch>> | undefined;
+  let browser: Browser | undefined;
 
   try {
     exportLog("browser.launch", { format, jobId });
-    browser = await chromium.launch({ headless: true });
+    browser = await launchExportBrowser(dimensions);
     exportLog("browser.newPage", { width: dimensions.width, height: dimensions.height });
-    const page = await browser.newPage({
-      deviceScaleFactor: 1,
-      viewport: dimensions,
-    });
+    const page = await browser.newPage();
     page.setDefaultTimeout(EXPORT_TIMEOUT_MS);
     page.setDefaultNavigationTimeout(EXPORT_TIMEOUT_MS);
     const url = new URL(`/render/${jobId}`, request.nextUrl.origin);
     url.searchParams.set("format", format);
 
     exportLog("page.goto", { url: url.toString() });
-    await page.goto(url.toString(), { timeout: EXPORT_TIMEOUT_MS, waitUntil: "domcontentloaded" });
-    exportLog("page.waitForLoadState");
-    await page.waitForLoadState("networkidle", { timeout: EXPORT_TIMEOUT_MS });
+    await page.goto(url.toString(), { timeout: EXPORT_TIMEOUT_MS, waitUntil: "networkidle0" });
     exportLog("page.waitForSelector");
     await page.waitForSelector('[data-export-ready="true"]', { timeout: EXPORT_TIMEOUT_MS });
     exportLog("page.hideNextDevIndicators");
     await hideNextDevIndicators(page);
     exportLog("page.screenshot");
-    const buffer = await page.locator("[data-export-frame]").screenshot({
-      animations: "disabled",
-      timeout: EXPORT_TIMEOUT_MS,
-      type: "png",
-    });
+    const frame = await page.waitForSelector("[data-export-frame]", { timeout: EXPORT_TIMEOUT_MS });
+
+    if (!frame) {
+      throw new Error("Export frame was not found");
+    }
+
+    const buffer = await frame.screenshot({ type: "png" });
     const filename = format === "story" ? "leaderboard-story.png" : "leaderboard-feed.png";
 
     const image = new ArrayBuffer(buffer.byteLength);

@@ -12,6 +12,7 @@ import type {
 } from "./types";
 import type { LeaderboardWeekSnapshot } from "./week-snapshots";
 import { normalizeAthleteName } from "../athletes/normalize";
+import type { SportPodiumPhotoUrls } from "../athletes/sport-podium-photos";
 import type { AthleteRecord } from "../athletes/types";
 
 export type ExportAthleteSelection = ExportLayoutMode | "all" | "5" | "4" | "3" | "2" | "1";
@@ -47,8 +48,11 @@ export function downloadBlob(blob: Blob, filename: string) {
   anchor.download = filename;
   document.body.append(anchor);
   anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
+
+  globalThis.setTimeout(() => {
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }, 1000);
 }
 
 export async function exportErrorMessage(response: Response): Promise<string> {
@@ -181,6 +185,36 @@ function normalizedPhotoUrl(value?: string) {
   return trimmed ? trimmed : undefined;
 }
 
+function cacheBustedPhotoUrl(value?: string, version?: string) {
+  const trimmed = normalizedPhotoUrl(value);
+  const cacheVersion = version?.trim();
+  if (!trimmed || !cacheVersion || /^(data|blob):/i.test(trimmed)) {
+    return trimmed;
+  }
+
+  try {
+    const url = new URL(trimmed);
+    url.searchParams.set("as_v", cacheVersion);
+    return url.toString();
+  } catch {
+    const separator = trimmed.includes("?") ? "&" : "?";
+    return `${trimmed}${separator}as_v=${encodeURIComponent(cacheVersion)}`;
+  }
+}
+
+function cacheBustedSportPodiumPhotoUrls(urls: SportPodiumPhotoUrls | undefined, version?: string): SportPodiumPhotoUrls | undefined {
+  if (!urls) {
+    return urls;
+  }
+
+  return Object.fromEntries(
+    Object.entries(urls).flatMap(([key, value]) => {
+      const url = cacheBustedPhotoUrl(value, version);
+      return url ? [[key, url]] : [];
+    }),
+  ) as SportPodiumPhotoUrls;
+}
+
 export function specWithDatabaseAthletePhotos(spec: LeaderboardSpec, databaseAthletes: AthleteRecord[]): LeaderboardSpec {
   if (!databaseAthletes.length || !spec.athletes.length) {
     return spec;
@@ -198,15 +232,16 @@ export function specWithDatabaseAthletePhotos(spec: LeaderboardSpec, databaseAth
         return athlete;
       }
 
-      const databaseProfilePhotoUrl = normalizedPhotoUrl(matched.profilePhotoUrl);
-      const databasePodiumPhotoUrl = normalizedPhotoUrl(matched.podiumPhotoUrl);
+      const databaseProfilePhotoUrl = cacheBustedPhotoUrl(matched.profilePhotoUrl, matched.updatedAt);
+      const databasePodiumPhotoUrl = cacheBustedPhotoUrl(matched.podiumPhotoUrl, matched.updatedAt);
       const existingProfilePhotoUrl = normalizedPhotoUrl(athlete.profilePhotoUrl);
       const existingPodiumPhotoUrl = normalizedPhotoUrl(athlete.podiumPhotoUrl);
       const existingAvatarDataUrl = normalizedPhotoUrl(athlete.avatarDataUrl);
       const profilePhotoUrl = databaseProfilePhotoUrl ?? existingProfilePhotoUrl;
-      const sportPodiumPhotoUrls = Object.keys(matched.sportPodiumPhotoUrls ?? {}).length
-        ? matched.sportPodiumPhotoUrls
-        : athlete.sportPodiumPhotoUrls;
+      const sportPodiumPhotoUrls =
+        matched.sportPodiumPhotoUrls === undefined
+          ? athlete.sportPodiumPhotoUrls
+          : cacheBustedSportPodiumPhotoUrls(matched.sportPodiumPhotoUrls, matched.updatedAt);
 
       return {
         ...athlete,

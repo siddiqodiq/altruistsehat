@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import { useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode, type WheelEvent } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import {
@@ -9,8 +9,9 @@ import {
   Download,
   Dumbbell,
   Footprints,
+  Minus,
+  Plus,
   RefreshCw,
-  Save,
   Search,
   TrendingDown,
   TrendingUp,
@@ -1245,19 +1246,45 @@ function exportPhotoAdjustmentValue(
   });
 }
 
+interface ExportPhotoEditorDragState {
+  athleteId: string;
+  height: number;
+  layoutMode: ExportLayoutMode;
+  pointerId: number;
+  startAdjustment: ExportPhotoAdjustment;
+  startX: number;
+  startY: number;
+  width: number;
+}
+
+function exportPhotoAdjustTarget(target: EventTarget | null): HTMLElement | null {
+  return target instanceof Element ? target.closest<HTMLElement>('[data-export-photo-adjust-target="true"]') : null;
+}
+
+function clampPhotoAdjustmentCoordinate(value: number) {
+  return Math.min(40, Math.max(-40, value));
+}
+
+function clampPhotoAdjustmentZoom(value: number, minimum: number) {
+  return Math.min(2.2, Math.max(minimum, value));
+}
+
+function cssAttributeValue(value: string) {
+  return value.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+}
+
 export function ExportPreviewModal({
   exportAthleteSelection,
   exportAthleteSelectionOptions,
   exportPhotoAdjustments,
   exporting,
-  savingPhotoAdjustment,
+  refreshingExportPreview,
   onClose,
   onDownload,
   onExportAthleteSelectionChange,
   onExportPhotoAdjustmentChange,
   onExportPhotoAdjustmentReset,
-  onSaveAdjustedPhotoAdjustments,
-  onSaveSelectedPhotoAdjustment,
+  onRefresh,
   open,
   spec,
 }: {
@@ -1265,23 +1292,19 @@ export function ExportPreviewModal({
   exportAthleteSelectionOptions: ExportAthleteSelectionOption[];
   exportPhotoAdjustments: ExportPhotoAdjustments;
   exporting: boolean;
-  savingPhotoAdjustment: boolean;
+  refreshingExportPreview: boolean;
   onClose: () => void;
   onDownload: () => void;
   onExportAthleteSelectionChange: (selection: ExportAthleteSelection) => void;
   onExportPhotoAdjustmentChange: (layoutMode: ExportLayoutMode, athleteId: string, adjustment: ExportPhotoAdjustment) => void;
   onExportPhotoAdjustmentReset: (layoutMode: ExportLayoutMode, athleteId: string) => void;
-  onSaveAdjustedPhotoAdjustments: (layoutMode: ExportLayoutMode, athletes: RankedAthlete[]) => void;
-  onSaveSelectedPhotoAdjustment: (layoutMode: ExportLayoutMode, athlete: RankedAthlete, adjustment: ExportPhotoAdjustment) => void;
+  onRefresh: () => void;
   open: boolean;
   spec: LeaderboardSpec;
 }) {
   const previewScale = 0.28;
   const layoutMode = exportLayoutModeForPreview(spec);
   const adjustableAthletes = useMemo(() => visibleExportPhotoAthletes(spec), [spec]);
-  const currentLayoutAdjustments = exportPhotoAdjustments[layoutMode] ?? {};
-  const adjustedVisibleAthletes = adjustableAthletes.filter((athlete) => currentLayoutAdjustments[athlete.id]);
-  const adjustedSaveableCount = adjustedVisibleAthletes.filter((athlete) => athlete.athleteId).length;
   const [selectedAdjustAthleteId, setSelectedAdjustAthleteId] = useState(adjustableAthletes[0]?.id ?? "");
   const resolvedSelectedAdjustAthleteId = adjustableAthletes.some((athlete) => athlete.id === selectedAdjustAthleteId)
     ? selectedAdjustAthleteId
@@ -1291,8 +1314,31 @@ export function ExportPreviewModal({
   const compactZoomMin = 0.8;
   const zoomMin = isCompactExportLayoutMode(layoutMode) ? compactZoomMin : 1;
   const displayZoom = Math.max(zoomMin, selectedAdjustment.zoom);
-  const controlsDisabled = exporting || savingPhotoAdjustment;
-  const selectedCanSave = Boolean(selectedAdjustAthlete?.athleteId);
+  const controlsDisabled = exporting || refreshingExportPreview;
+  const dragStateRef = useRef<ExportPhotoEditorDragState | null>(null);
+  const [draggingPhotoAthleteId, setDraggingPhotoAthleteId] = useState("");
+  const activeAthleteSelector = selectedAdjustAthlete ? cssAttributeValue(selectedAdjustAthlete.id) : "";
+  const previewEditorStyles = `
+    [data-export-preview-stage] [data-export-photo-adjust-target="true"] {
+      cursor: grab;
+    }
+    [data-export-preview-stage] [data-export-photo-adjust-target="true"]:hover {
+      outline: 8px solid rgba(255, 199, 44, 0.22);
+      outline-offset: -8px;
+    }
+    ${
+      activeAthleteSelector
+        ? `[data-export-preview-stage] [data-export-photo-adjust-target="true"][data-athlete-id="${activeAthleteSelector}"] {
+      outline: 10px solid rgba(255, 199, 44, 0.38);
+      outline-offset: -10px;
+      box-shadow: inset 0 0 0 4px rgba(0, 0, 0, 0.42);
+    }`
+        : ""
+    }
+    [data-export-preview-stage][data-export-preview-dragging="true"] [data-export-photo-adjust-target="true"] {
+      cursor: grabbing;
+    }
+  `;
 
   function updateSelectedAdjustment(patch: Partial<ExportPhotoAdjustment>) {
     if (!selectedAdjustAthlete) {
@@ -1302,6 +1348,111 @@ export function ExportPreviewModal({
     onExportPhotoAdjustmentChange(layoutMode, selectedAdjustAthlete.id, {
       ...selectedAdjustment,
       ...patch,
+    });
+  }
+
+  function adjustmentForEditableAthlete(athleteId: string, targetLayoutMode: ExportLayoutMode) {
+    const athlete = adjustableAthletes.find((candidate) => candidate.id === athleteId);
+    return athlete ? exportPhotoAdjustmentValue(exportPhotoAdjustments, targetLayoutMode, athlete) : undefined;
+  }
+
+  function handleExportPreviewPointerDown(event: PointerEvent<HTMLDivElement>) {
+    if (controlsDisabled || event.button !== 0) {
+      return;
+    }
+
+    const target = exportPhotoAdjustTarget(event.target);
+    const athleteId = target?.dataset.athleteId;
+    const targetLayoutMode = target?.dataset.layoutMode as ExportLayoutMode | undefined;
+    if (!target || !athleteId || targetLayoutMode !== layoutMode) {
+      return;
+    }
+
+    const startAdjustment = adjustmentForEditableAthlete(athleteId, targetLayoutMode);
+    if (!startAdjustment) {
+      return;
+    }
+
+    const targetRect = target.getBoundingClientRect();
+    setSelectedAdjustAthleteId(athleteId);
+    setDraggingPhotoAthleteId(athleteId);
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
+
+    dragStateRef.current = {
+      athleteId,
+      height: Math.max(1, targetRect.height / previewScale),
+      layoutMode: targetLayoutMode,
+      pointerId: event.pointerId,
+      startAdjustment,
+      startX: event.clientX,
+      startY: event.clientY,
+      width: Math.max(1, targetRect.width / previewScale),
+    };
+  }
+
+  function handleExportPreviewPointerMove(event: PointerEvent<HTMLDivElement>) {
+    const dragState = dragStateRef.current;
+    if (!dragState || controlsDisabled) {
+      return;
+    }
+
+    const movementX = ((event.clientX - dragState.startX) / previewScale / dragState.width) * 100;
+    const movementY = ((event.clientY - dragState.startY) / previewScale / dragState.height) * 100;
+    const direction = dragState.layoutMode === "podiumTop10" ? -1 : 1;
+
+    event.preventDefault();
+    onExportPhotoAdjustmentChange(dragState.layoutMode, dragState.athleteId, {
+      ...dragState.startAdjustment,
+      x: clampPhotoAdjustmentCoordinate(dragState.startAdjustment.x + movementX * direction),
+      y: clampPhotoAdjustmentCoordinate(dragState.startAdjustment.y + movementY * direction),
+    });
+  }
+
+  function handleExportPreviewPointerUp(event: PointerEvent<HTMLDivElement>) {
+    const dragState = dragStateRef.current;
+    if (!dragState) {
+      return;
+    }
+
+    if (event.currentTarget.hasPointerCapture(dragState.pointerId)) {
+      event.currentTarget.releasePointerCapture(dragState.pointerId);
+    }
+    dragStateRef.current = null;
+    setDraggingPhotoAthleteId("");
+  }
+
+  function handleExportPreviewWheel(event: WheelEvent<HTMLDivElement>) {
+    if (controlsDisabled) {
+      return;
+    }
+
+    const target = exportPhotoAdjustTarget(event.target);
+    const athleteId = target?.dataset.athleteId;
+    const targetLayoutMode = target?.dataset.layoutMode as ExportLayoutMode | undefined;
+    if (!athleteId || targetLayoutMode !== layoutMode) {
+      return;
+    }
+
+    const currentAdjustment = adjustmentForEditableAthlete(athleteId, targetLayoutMode);
+    if (!currentAdjustment) {
+      return;
+    }
+
+    const targetZoomMin = isCompactExportLayoutMode(targetLayoutMode) ? compactZoomMin : 1;
+    const zoomDelta = event.deltaY > 0 ? -0.05 : 0.05;
+
+    setSelectedAdjustAthleteId(athleteId);
+    event.preventDefault();
+    onExportPhotoAdjustmentChange(targetLayoutMode, athleteId, {
+      ...currentAdjustment,
+      zoom: clampPhotoAdjustmentZoom(currentAdjustment.zoom + zoomDelta, targetZoomMin),
+    });
+  }
+
+  function nudgeSelectedZoom(delta: number) {
+    updateSelectedAdjustment({
+      zoom: clampPhotoAdjustmentZoom(displayZoom + delta, zoomMin),
     });
   }
 
@@ -1322,17 +1473,41 @@ export function ExportPreviewModal({
             <h2 className="font-poppins text-2xl font-bold text-primary-charcoal dark:text-gray-100">Preview Export</h2>
             <p className="mt-1 text-sm text-primary-charcoal/60 dark:text-gray-400">Poster PNG memakai desain export yang sudah ada.</p>
           </div>
-          <button
-            aria-label="Close export preview"
-            className="grid size-10 place-items-center rounded-full border border-secondary-sand bg-white text-primary-charcoal dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100"
-            onClick={onClose}
-            type="button"
-          >
-            <X className="size-5" />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              aria-label="Refresh export"
+              className="grid size-10 place-items-center rounded-full border border-secondary-sand bg-white text-primary-charcoal transition hover:bg-secondary-sand/30 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100"
+              disabled={controlsDisabled}
+              onClick={onRefresh}
+              title="Refresh export"
+              type="button"
+            >
+              <RefreshCw className={cn("size-5", refreshingExportPreview && "animate-spin")} />
+            </button>
+            <button
+              aria-label="Close export preview"
+              className="grid size-10 place-items-center rounded-full border border-secondary-sand bg-white text-primary-charcoal transition hover:bg-secondary-sand/30 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100"
+              onClick={onClose}
+              type="button"
+            >
+              <X className="size-5" />
+            </button>
+          </div>
         </div>
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_220px]">
-          <div className="overflow-auto rounded-xl bg-primary-charcoal p-4">
+          <div
+            className="grid place-items-center overflow-auto rounded-xl bg-primary-charcoal p-4"
+            data-export-preview-active-athlete={selectedAdjustAthlete?.id}
+            data-export-preview-dragging={draggingPhotoAthleteId ? "true" : "false"}
+            data-export-preview-stage
+            data-testid="export-preview-stage"
+            onPointerCancel={handleExportPreviewPointerUp}
+            onPointerDown={handleExportPreviewPointerDown}
+            onPointerMove={handleExportPreviewPointerMove}
+            onPointerUp={handleExportPreviewPointerUp}
+            onWheel={handleExportPreviewWheel}
+          >
+            <style>{previewEditorStyles}</style>
             <div
               style={
                 {
@@ -1429,61 +1604,39 @@ export function ExportPreviewModal({
                   <div className="mt-3 truncate text-sm font-black text-primary-charcoal dark:text-gray-100" title={selectedAdjustAthlete?.name}>
                     {selectedAdjustAthlete?.name}
                   </div>
-                  <div className="mt-3 grid gap-3">
-                    <label className="grid gap-1.5 text-[11px] font-black uppercase tracking-[0.08em] text-primary-charcoal/55 dark:text-gray-400">
-                      <span className="flex items-center justify-between gap-2">
-                        Zoom
-                        <span className="font-mono text-[10px] text-primary-charcoal/45 dark:text-gray-500">
-                          {displayZoom.toFixed(2)}x
-                        </span>
-                      </span>
-                      <input
-                        className="accent-primary-brown"
-                        disabled={controlsDisabled}
-                        max="2.2"
-                        min={zoomMin}
-                        onChange={(event) => updateSelectedAdjustment({ zoom: Number(event.currentTarget.value) })}
-                        step="0.05"
-                        type="range"
-                        value={displayZoom}
-                      />
-                    </label>
-                    <label className="grid gap-1.5 text-[11px] font-black uppercase tracking-[0.08em] text-primary-charcoal/55 dark:text-gray-400">
-                      <span className="flex items-center justify-between gap-2">
-                        Horizontal
-                        <span className="font-mono text-[10px] text-primary-charcoal/45 dark:text-gray-500">
-                          {Math.round(selectedAdjustment.x)}
-                        </span>
-                      </span>
-                      <input
-                        className="accent-primary-brown"
-                        disabled={controlsDisabled}
-                        max="40"
-                        min="-40"
-                        onChange={(event) => updateSelectedAdjustment({ x: Number(event.currentTarget.value) })}
-                        step="1"
-                        type="range"
-                        value={selectedAdjustment.x}
-                      />
-                    </label>
-                    <label className="grid gap-1.5 text-[11px] font-black uppercase tracking-[0.08em] text-primary-charcoal/55 dark:text-gray-400">
-                      <span className="flex items-center justify-between gap-2">
-                        Vertical
-                        <span className="font-mono text-[10px] text-primary-charcoal/45 dark:text-gray-500">
-                          {Math.round(selectedAdjustment.y)}
-                        </span>
-                      </span>
-                      <input
-                        className="accent-primary-brown"
-                        disabled={controlsDisabled}
-                        max="40"
-                        min="-40"
-                        onChange={(event) => updateSelectedAdjustment({ y: Number(event.currentTarget.value) })}
-                        step="1"
-                        type="range"
-                        value={selectedAdjustment.y}
-                      />
-                    </label>
+                  <div
+                    className="mt-3 grid gap-2 rounded-xl border border-secondary-sand/70 bg-white/70 p-2.5 dark:border-zinc-700 dark:bg-zinc-950/70"
+                    data-testid="export-photo-direct-editor"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="font-mono text-xs font-black text-primary-charcoal/60 dark:text-gray-400">
+                        {displayZoom.toFixed(2)}x
+                      </div>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          aria-label="Zoom out selected photo"
+                          className="grid size-8 cursor-pointer place-items-center rounded-lg border border-secondary-sand bg-white text-primary-charcoal transition hover:bg-secondary-sand/30 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100"
+                          disabled={controlsDisabled || !selectedAdjustAthlete}
+                          onClick={() => nudgeSelectedZoom(-0.05)}
+                          type="button"
+                        >
+                          <Minus className="size-4" />
+                        </button>
+                        <button
+                          aria-label="Zoom in selected photo"
+                          className="grid size-8 cursor-pointer place-items-center rounded-lg border border-secondary-sand bg-white text-primary-charcoal transition hover:bg-secondary-sand/30 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100"
+                          disabled={controlsDisabled || !selectedAdjustAthlete}
+                          onClick={() => nudgeSelectedZoom(0.05)}
+                          type="button"
+                        >
+                          <Plus className="size-4" />
+                        </button>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-1.5 font-mono text-[11px] font-black text-primary-charcoal/45 dark:text-gray-500">
+                      <span className="rounded-lg bg-primary-beige/80 px-2 py-1 dark:bg-zinc-900">X {Math.round(selectedAdjustment.x)}</span>
+                      <span className="rounded-lg bg-primary-beige/80 px-2 py-1 dark:bg-zinc-900">Y {Math.round(selectedAdjustment.y)}</span>
+                    </div>
                   </div>
                   <button
                     className={buttonClassName("mt-3 h-9 w-full border border-secondary-sand bg-white text-primary-charcoal hover:bg-secondary-sand/30 dark:border-zinc-700 dark:bg-zinc-950 dark:text-gray-100")}
@@ -1493,32 +1646,6 @@ export function ExportPreviewModal({
                   >
                     Reset
                   </button>
-                  <div className="mt-2 grid gap-2">
-                    <button
-                      className={buttonClassName("h-9 w-full bg-primary-brown text-white shadow-[0_10px_22px_rgb(90,46,23,0.14)] hover:bg-primary-brown/90")}
-                      disabled={controlsDisabled || !selectedAdjustAthlete || !selectedCanSave}
-                      onClick={() =>
-                        selectedAdjustAthlete && onSaveSelectedPhotoAdjustment(layoutMode, selectedAdjustAthlete, selectedAdjustment)
-                      }
-                      type="button"
-                    >
-                      <Save className="size-3.5" />
-                      {savingPhotoAdjustment ? "Saving..." : "Save as Default"}
-                    </button>
-                    <button
-                      className={buttonClassName("h-9 w-full border border-secondary-sand bg-white text-primary-charcoal hover:bg-secondary-sand/30 dark:border-zinc-700 dark:bg-zinc-950 dark:text-gray-100")}
-                      disabled={controlsDisabled || adjustedSaveableCount <= 0}
-                      onClick={() => onSaveAdjustedPhotoAdjustments(layoutMode, adjustedVisibleAthletes)}
-                      type="button"
-                    >
-                      Save Adjusted
-                    </button>
-                  </div>
-                  {!selectedCanSave ? (
-                    <p className="mt-2 text-[11px] font-semibold leading-4 text-primary-charcoal/50 dark:text-gray-500">
-                      Database athlete not linked.
-                    </p>
-                  ) : null}
                 </>
               ) : (
                 <p className="mt-3 text-xs font-semibold leading-5 text-primary-charcoal/55 dark:text-gray-400">Tidak ada foto atlet untuk layout ini.</p>
@@ -1526,7 +1653,7 @@ export function ExportPreviewModal({
             </div>
             <button
               className={buttonClassName("bg-primary-brown text-white shadow-[0_12px_30px_rgb(90,46,23,0.18)] hover:bg-primary-brown/90")}
-              disabled={exporting}
+              disabled={exporting || refreshingExportPreview}
               onClick={onDownload}
               type="button"
             >

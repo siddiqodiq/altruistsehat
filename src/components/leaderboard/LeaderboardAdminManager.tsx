@@ -49,7 +49,6 @@ import type {
   ExportPhotoAdjustments,
   LeaderboardSpec,
   MetricType,
-  RankedAthlete,
 } from "@/lib/leaderboard/types";
 import {
   UNSAVED_ADMIN_CHANGES_STORAGE_KEY,
@@ -80,6 +79,11 @@ import {
   specWithTrend,
   type ExportAthleteSelection,
 } from "@/lib/leaderboard/export-client";
+import { DEFAULT_EXPORT_PHOTO_ADJUSTMENTS } from "@/lib/leaderboard/photo-adjustments";
+import {
+  specWithLocalExportPhotoAdjustments,
+  writeLocalExportPhotoAdjustment,
+} from "@/lib/leaderboard/export-photo-autosave";
 import {
   LeaderboardWeekSnapshotSchema,
   compareSnapshotsByWeekAsc,
@@ -129,14 +133,10 @@ interface PendingViewChange {
   weekNumber: string;
 }
 
-interface ExportPhotoAdjustmentSaveTarget {
-  athlete: RankedAthlete;
+interface PendingExportPhotoAdjustmentAutosave {
   adjustment: ExportPhotoAdjustment;
-}
-
-interface SaveableExportPhotoAdjustmentTarget {
-  athlete: RankedAthlete & { athleteId: string };
-  adjustment: ExportPhotoAdjustment;
+  athlete: AthleteEntry;
+  layoutMode: ExportLayoutMode;
 }
 
 function compactDateRangeLabel(value: string): string {
@@ -697,7 +697,7 @@ export function LeaderboardAdminManager() {
   const [saving, setSaving] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [savingPhotoAdjustment, setSavingPhotoAdjustment] = useState(false);
+  const [refreshingExportPreview, setRefreshingExportPreview] = useState(false);
   const [exportPreviewSpec, setExportPreviewSpec] = useState<LeaderboardSpec | null>(null);
   const [exportAthleteSelection, setExportAthleteSelection] = useState<ExportAthleteSelection>("podiumTop10");
   const [exportPhotoAdjustments, setExportPhotoAdjustments] = useState<ExportPhotoAdjustments>({});
@@ -710,6 +710,9 @@ export function LeaderboardAdminManager() {
   const [selectedSnapshotKey, setSelectedSnapshotKey] = useState("");
   const [toast, setToast] = useState<{ tone: "success" | "error"; title: string; message: string } | null>(null);
   const toastTimeoutRef = useRef<number | undefined>(undefined);
+  const exportPhotoAutosaveTimersRef = useRef<Record<string, number>>({});
+  const pendingExportPhotoAutosavesRef = useRef<Record<string, PendingExportPhotoAdjustmentAutosave>>({});
+  const activeExportPhotoAutosavesRef = useRef<Promise<void>[]>([]);
 
   const canEdit = isDevelopmentAdminToken(adminToken);
   const draft = draftsByCategory[selectedCategory];
@@ -877,6 +880,8 @@ export function LeaderboardAdminManager() {
       if (toastTimeoutRef.current) {
         window.clearTimeout(toastTimeoutRef.current);
       }
+
+      Object.values(exportPhotoAutosaveTimersRef.current).forEach((timer) => window.clearTimeout(timer));
     },
     [],
   );
@@ -1244,16 +1249,91 @@ export function LeaderboardAdminManager() {
   async function specWithLatestDatabasePhotos(spec: LeaderboardSpec) {
     const names = spec.athletes.map((athlete) => athlete.name).filter(Boolean);
     if (!names.length) {
-      return spec;
+      return specWithLocalExportPhotoAdjustments(spec);
     }
 
-    const lookup = await lookupAthletesByName(names);
+    clearAthleteLookupCache();
+    const lookup = await lookupAthletesByName(names, { forceRefresh: true });
     const databaseAthletes = Array.from(lookup.values()).filter((athlete): athlete is AthleteRecord => Boolean(athlete));
-    return specWithDatabaseAthletePhotos(spec, databaseAthletes);
+    return specWithLocalExportPhotoAdjustments(specWithDatabaseAthletePhotos(spec, databaseAthletes));
+  }
+
+  function exportPhotoAutosaveKey(layoutMode: ExportLayoutMode, athleteId: string) {
+    return `${layoutMode}:${athleteId}`;
+  }
+
+  async function persistExportPhotoAdjustmentAutosave(target: PendingExportPhotoAdjustmentAutosave) {
+    const adjustment = clampExportPhotoAdjustment(target.adjustment);
+
+    if (!target.athlete.athleteId) {
+      writeLocalExportPhotoAdjustment({ adjustment, athlete: target.athlete, layoutMode: target.layoutMode });
+      setExportPreviewSpec((current) => (current ? specWithLocalExportPhotoAdjustments(current) : current));
+      return;
+    }
+
+    try {
+      const updatedAthlete = await updateAthletePhotoAdjustments(target.athlete.athleteId, {
+        ...(target.athlete.podiumPhotoAdjustments ?? {}),
+        [target.layoutMode]: adjustment,
+      });
+
+      clearAthleteLookupCache();
+      setExportPreviewSpec((current) =>
+        current ? specWithLocalExportPhotoAdjustments(specWithDatabaseAthletePhotos(current, [updatedAthlete])) : current,
+      );
+      setStatus("Photo position saved");
+    } catch {
+      writeLocalExportPhotoAdjustment({ adjustment, athlete: target.athlete, layoutMode: target.layoutMode });
+      setExportPreviewSpec((current) => (current ? specWithLocalExportPhotoAdjustments(current) : current));
+      setStatus("Photo position saved locally");
+    }
+  }
+
+  function trackActiveExportPhotoAutosave(promise: Promise<void>) {
+    activeExportPhotoAutosavesRef.current.push(promise);
+    promise.finally(() => {
+      activeExportPhotoAutosavesRef.current = activeExportPhotoAutosavesRef.current.filter((candidate) => candidate !== promise);
+    });
+  }
+
+  function scheduleExportPhotoAdjustmentAutosave(target: PendingExportPhotoAdjustmentAutosave) {
+    const key = exportPhotoAutosaveKey(target.layoutMode, target.athlete.id);
+    pendingExportPhotoAutosavesRef.current[key] = target;
+
+    const currentTimer = exportPhotoAutosaveTimersRef.current[key];
+    if (currentTimer) {
+      window.clearTimeout(currentTimer);
+    }
+
+    exportPhotoAutosaveTimersRef.current[key] = window.setTimeout(() => {
+      delete exportPhotoAutosaveTimersRef.current[key];
+      const pending = pendingExportPhotoAutosavesRef.current[key];
+      delete pendingExportPhotoAutosavesRef.current[key];
+      if (pending) {
+        trackActiveExportPhotoAutosave(persistExportPhotoAdjustmentAutosave(pending));
+      }
+    }, 650);
+  }
+
+  async function flushPendingExportPhotoAdjustmentAutosaves() {
+    const pendingTargets = Object.entries(pendingExportPhotoAutosavesRef.current).map(([key, target]) => {
+      const timer = exportPhotoAutosaveTimersRef.current[key];
+      if (timer) {
+        window.clearTimeout(timer);
+        delete exportPhotoAutosaveTimersRef.current[key];
+      }
+
+      return target;
+    });
+
+    pendingExportPhotoAutosavesRef.current = {};
+    const flushes = pendingTargets.map((target) => persistExportPhotoAdjustmentAutosave(target));
+    await Promise.allSettled([...activeExportPhotoAutosavesRef.current, ...flushes]);
   }
 
   function handleExportPhotoAdjustmentChange(layoutMode: ExportLayoutMode, athleteId: string, adjustment: ExportPhotoAdjustment) {
     const nextAdjustment = clampExportPhotoAdjustment(adjustment);
+    const targetAthlete = selectedExportSpec.athletes.find((athlete) => athlete.id === athleteId);
 
     setExportPhotoAdjustments((current) => ({
       ...current,
@@ -1262,129 +1342,27 @@ export function LeaderboardAdminManager() {
         [athleteId]: nextAdjustment,
       },
     }));
+
+    if (targetAthlete) {
+      scheduleExportPhotoAdjustmentAutosave({
+        adjustment: nextAdjustment,
+        athlete: targetAthlete,
+        layoutMode,
+      });
+    }
   }
 
   function handleExportPhotoAdjustmentReset(layoutMode: ExportLayoutMode, athleteId: string) {
-    setExportPhotoAdjustments((current) => {
-      const currentLayoutAdjustments = current[layoutMode];
-      if (!currentLayoutAdjustments?.[athleteId]) {
-        return current;
-      }
-
-      const nextLayoutAdjustments = { ...currentLayoutAdjustments };
-      delete nextLayoutAdjustments[athleteId];
-      const nextAdjustments = { ...current };
-
-      if (Object.keys(nextLayoutAdjustments).length) {
-        nextAdjustments[layoutMode] = nextLayoutAdjustments;
-      } else {
-        delete nextAdjustments[layoutMode];
-      }
-
-      return nextAdjustments;
-    });
+    handleExportPhotoAdjustmentChange(layoutMode, athleteId, DEFAULT_EXPORT_PHOTO_ADJUSTMENTS[layoutMode]);
   }
 
-  function clearExportPhotoAdjustmentOverrides(layoutMode: ExportLayoutMode, athleteIds: string[]) {
-    if (!athleteIds.length) {
-      return;
-    }
-
-    setExportPhotoAdjustments((current) => {
-      const currentLayoutAdjustments = current[layoutMode];
-      if (!currentLayoutAdjustments) {
-        return current;
-      }
-
-      const nextLayoutAdjustments = { ...currentLayoutAdjustments };
-      athleteIds.forEach((athleteId) => {
-        delete nextLayoutAdjustments[athleteId];
-      });
-
-      const nextAdjustments = { ...current };
-      if (Object.keys(nextLayoutAdjustments).length) {
-        nextAdjustments[layoutMode] = nextLayoutAdjustments;
-      } else {
-        delete nextAdjustments[layoutMode];
-      }
-
-      return nextAdjustments;
-    });
-  }
-
-  async function saveExportPhotoAdjustmentDefaults(layoutMode: ExportLayoutMode, targets: ExportPhotoAdjustmentSaveTarget[]) {
-    if (!canEdit) {
-      setStatus("Enter admin token to save photo preset");
-      showToast("error", "Token belum aktif", "Masukkan admin token sebelum menyimpan preset foto.");
-      return;
-    }
-
-    const saveableTargets = targets.filter((target): target is SaveableExportPhotoAdjustmentTarget => Boolean(target.athlete.athleteId));
-    if (!saveableTargets.length) {
-      setStatus("Athlete database record not linked");
-      showToast("error", "Preset belum tersimpan", "Atlet ini belum tersambung ke database atlet.");
-      return;
-    }
-
-    setSavingPhotoAdjustment(true);
-    setStatus("Saving photo preset");
-    try {
-      const updatedAthletes = await Promise.all(
-        saveableTargets.map(({ athlete, adjustment }) =>
-          updateAthletePhotoAdjustments(athlete.athleteId, {
-            ...(athlete.podiumPhotoAdjustments ?? {}),
-            [layoutMode]: clampExportPhotoAdjustment(adjustment),
-          }),
-        ),
-      );
-
-      clearAthleteLookupCache();
-      setExportPreviewSpec((current) => (current ? specWithDatabaseAthletePhotos(current, updatedAthletes) : current));
-      clearExportPhotoAdjustmentOverrides(
-        layoutMode,
-        saveableTargets.map(({ athlete }) => athlete.id),
-      );
-      setStatus("Photo preset saved");
-      showToast(
-        "success",
-        "Preset foto tersimpan",
-        saveableTargets.length === 1
-          ? `${saveableTargets[0].athlete.name} tersimpan untuk ${layoutMode === "podiumTop10" ? "Podium Top 10" : layoutMode.replace("top", "Top ")}.`
-          : `${saveableTargets.length} preset foto tersimpan.`,
-      );
-    } catch (error) {
-      const message = error instanceof Error ? error.message : "Photo preset save failed";
-      setStatus(message);
-      showToast("error", "Gagal menyimpan preset", message);
-    } finally {
-      setSavingPhotoAdjustment(false);
-    }
-  }
-
-  function handleSaveSelectedExportPhotoAdjustment(
-    layoutMode: ExportLayoutMode,
-    athlete: RankedAthlete,
-    adjustment: ExportPhotoAdjustment,
-  ) {
-    void saveExportPhotoAdjustmentDefaults(layoutMode, [{ athlete, adjustment }]);
-  }
-
-  function handleSaveAdjustedExportPhotoAdjustments(layoutMode: ExportLayoutMode, athletes: RankedAthlete[]) {
-    const layoutAdjustments = exportPhotoAdjustments[layoutMode] ?? {};
-    const targets = athletes.flatMap((athlete) => {
-      const adjustment = layoutAdjustments[athlete.id];
-      return adjustment ? [{ athlete, adjustment }] : [];
-    });
-
-    void saveExportPhotoAdjustmentDefaults(layoutMode, targets);
-  }
 
   async function openExportPreview() {
-    const baseSpec = exportSpec;
+    const baseSpec = specWithLocalExportPhotoAdjustments(exportSpec);
     setExportAthleteSelection(exportAthleteSelectionOptions(baseSpec)[0]?.value ?? "top1");
-    setExportPhotoAdjustments({});
     setExportPreviewSpec(baseSpec);
     setExportOpen(true);
+    setRefreshingExportPreview(true);
     setStatus("Preparing export preview");
 
     try {
@@ -1392,21 +1370,40 @@ export function LeaderboardAdminManager() {
       setStatus("Ready");
     } catch {
       setStatus("Ready");
+    } finally {
+      setRefreshingExportPreview(false);
+    }
+  }
+
+  async function handleRefreshExportPreview() {
+    if (refreshingExportPreview) {
+      return;
+    }
+
+    setRefreshingExportPreview(true);
+    setStatus("Refreshing export preview");
+
+    try {
+      setExportPreviewSpec(await specWithLatestDatabasePhotos(exportSpec));
+      setStatus("Export preview refreshed");
+      showToast("success", "Export diperbarui", "Foto atlet diambil ulang dari database.");
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Export preview refresh failed";
+      setStatus(message);
+      showToast("error", "Refresh gagal", message);
+    } finally {
+      setRefreshingExportPreview(false);
     }
   }
 
   async function handleDownloadExport() {
-    const baseSpec = exportPreviewBaseSpec;
     setExporting(true);
     setStatus("Rendering PNG");
 
     try {
-      const latestPhotoSpec = await specWithLatestDatabasePhotos(baseSpec);
-      const filename = await downloadLeaderboardPng(
-        specWithExportAthleteSelection({ ...latestPhotoSpec, exportPhotoAdjustments }, exportAthleteSelection),
-        STORY_FORMAT,
-      );
-      setExportPreviewSpec(latestPhotoSpec);
+      await flushPendingExportPhotoAdjustmentAutosaves();
+      const exportSpecToDownload = await specWithLatestDatabasePhotos(selectedExportSpec);
+      const filename = await downloadLeaderboardPng(exportSpecToDownload, STORY_FORMAT);
       setStatus("PNG downloaded");
       showToast("success", "Export berhasil", filename);
     } catch (error) {
@@ -1661,14 +1658,13 @@ export function LeaderboardAdminManager() {
           exportAthleteSelectionOptions={exportSelectionOptions}
           exportPhotoAdjustments={exportPhotoAdjustments}
           exporting={exporting}
-          savingPhotoAdjustment={savingPhotoAdjustment}
+          refreshingExportPreview={refreshingExportPreview}
           onClose={() => setExportOpen(false)}
           onDownload={() => void handleDownloadExport()}
           onExportAthleteSelectionChange={setExportAthleteSelection}
           onExportPhotoAdjustmentChange={handleExportPhotoAdjustmentChange}
           onExportPhotoAdjustmentReset={handleExportPhotoAdjustmentReset}
-          onSaveAdjustedPhotoAdjustments={handleSaveAdjustedExportPhotoAdjustments}
-          onSaveSelectedPhotoAdjustment={handleSaveSelectedExportPhotoAdjustment}
+          onRefresh={() => void handleRefreshExportPreview()}
           open={exportOpen}
           spec={selectedExportSpec}
         />

@@ -3,11 +3,33 @@
 import type { CSSProperties, ChangeEvent, FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, Check, Crop, Download, Edit3, FileUp, ImagePlus, Plus, Search, Trash2, X } from "lucide-react";
+import {
+  ArrowLeft,
+  Bike,
+  Check,
+  ChevronDown,
+  ChevronUp,
+  Crop,
+  Download,
+  Dumbbell,
+  Edit3,
+  FileUp,
+  Footprints,
+  Image as ImageIcon,
+  ImagePlus,
+  Plus,
+  Search,
+  Star,
+  Trash2,
+  Waves,
+  X,
+  type LucideIcon,
+} from "lucide-react";
 import {
   createAthlete,
   deleteAthleteRecord,
   downloadAthletePhoto,
+  downloadAthletePhotoUrl,
   importAthletes,
   listAthletes,
   updateAthleteRecord,
@@ -41,9 +63,7 @@ import {
   clampExportPhotoAdjustment,
   compactCutoutBackdropStyle,
   compactExportAthleteCountForLayout,
-  compactPhotoBackgroundAdjustmentStyle,
   compactPhotoForegroundAdjustmentStyle,
-  compactPhotoTreatmentForImage,
   compactPresetPreviewHeightPx,
   DEFAULT_EXPORT_PHOTO_ADJUSTMENTS,
   isCompactExportLayoutMode,
@@ -84,6 +104,23 @@ interface AthleteToast {
   tone: "success" | "error";
 }
 
+type PhotoSlotKey = "main" | SportPodiumPhotoKey;
+type PhotoSlotStatus = "custom" | "default" | "empty";
+
+interface PhotoSlotDefinition {
+  icon: LucideIcon;
+  key: PhotoSlotKey;
+  label: string;
+  shortLabel: string;
+}
+
+interface PhotoCoverage {
+  customCount: number;
+  emptyCount: number;
+  statusLabel: string;
+  totalCount: number;
+}
+
 const EMPTY_FORM: AthleteFormState = {
   name: "",
   profilePhotoUrl: "",
@@ -95,6 +132,39 @@ const EMPTY_FORM: AthleteFormState = {
   sportPodiumPreviewUrls: {},
   pendingSportPodiumFiles: {},
 };
+
+const PHOTO_SLOT_DEFINITIONS: PhotoSlotDefinition[] = [
+  {
+    icon: Star,
+    key: "main",
+    label: "Main podium",
+    shortLabel: "Main",
+  },
+  {
+    icon: Footprints,
+    key: "running",
+    label: "Running",
+    shortLabel: "Run",
+  },
+  {
+    icon: Bike,
+    key: "cycling",
+    label: "Cycling",
+    shortLabel: "Bike",
+  },
+  {
+    icon: Waves,
+    key: "swimming",
+    label: "Swimming",
+    shortLabel: "Swim",
+  },
+  {
+    icon: Dumbbell,
+    key: "weight_training",
+    label: "Weight training",
+    shortLabel: "Gym",
+  },
+];
 
 function inputClassName(extra?: string) {
   return cn(
@@ -114,8 +184,8 @@ function formPayload(form: AthleteFormState): AthletePayload {
   return {
     name: form.name.trim(),
     podiumPhotoAdjustments: form.podiumPhotoAdjustments,
-    profilePhotoUrl: form.profilePhotoUrl.trim() || undefined,
-    podiumPhotoUrl: form.podiumPhotoUrl.trim() || undefined,
+    profilePhotoUrl: form.profilePhotoUrl.trim() || null,
+    podiumPhotoUrl: form.podiumPhotoUrl.trim() || null,
     sportPodiumPhotoUrls: normalizeSportPodiumPhotoUrls(form.sportPodiumPhotoUrls),
   };
 }
@@ -160,15 +230,193 @@ function ProfilePreview({ athlete }: { athlete: AthleteRecord }) {
   );
 }
 
-function PodiumPreview({ athlete }: { athlete: AthleteRecord }) {
+function photoSlotPreviewUrl(athlete: AthleteRecord, key: PhotoSlotKey): string | undefined {
+  if (key === "main") {
+    return athlete.podiumPhotoUrl;
+  }
+
+  return athlete.sportPodiumPhotoUrls?.[key] || athlete.podiumPhotoUrl;
+}
+
+function photoSlotStatus(athlete: AthleteRecord, key: PhotoSlotKey): PhotoSlotStatus {
+  if (key === "main") {
+    return athlete.podiumPhotoUrl ? "custom" : "empty";
+  }
+
+  if (athlete.sportPodiumPhotoUrls?.[key]) {
+    return "custom";
+  }
+
+  return athlete.podiumPhotoUrl ? "default" : "empty";
+}
+
+function photoCoverageForAthlete(athlete: AthleteRecord): PhotoCoverage {
+  const statuses = PHOTO_SLOT_DEFINITIONS.map((slot) => photoSlotStatus(athlete, slot.key));
+  const customCount = statuses.filter((status) => status === "custom").length;
+  const emptyCount = statuses.filter((status) => status === "empty").length;
+  const totalCount = statuses.length;
+  let statusLabel = `${customCount}/${totalCount} custom`;
+
+  if (customCount === 0) {
+    statusLabel = "No photos";
+  } else if (customCount === totalCount) {
+    statusLabel = "All custom";
+  } else if (customCount === 1 && Boolean(athlete.podiumPhotoUrl) && emptyCount === 0) {
+    statusLabel = "Default only";
+  }
+
+  return {
+    customCount,
+    emptyCount,
+    statusLabel,
+    totalCount,
+  };
+}
+
+function statusLabelForSlot(status: PhotoSlotStatus) {
+  if (status === "custom") {
+    return "Custom";
+  }
+
+  if (status === "default") {
+    return "Default";
+  }
+
+  return "Empty";
+}
+
+function PhotoSlotIcon({
+  athlete,
+  slot,
+}: {
+  athlete: AthleteRecord;
+  slot: PhotoSlotDefinition;
+}) {
+  const Icon = slot.icon;
+  const status = photoSlotStatus(athlete, slot.key);
+  const label = `${slot.label}: ${statusLabelForSlot(status)}`;
+
   return (
-    <div className="grid h-16 w-10 shrink-0 place-items-end overflow-hidden rounded-[8px] border border-zinc-200 bg-[linear-gradient(45deg,#f4f4f5_25%,transparent_25%),linear-gradient(-45deg,#f4f4f5_25%,transparent_25%),linear-gradient(45deg,transparent_75%,#f4f4f5_75%),linear-gradient(-45deg,transparent_75%,#f4f4f5_75%)] bg-[length:12px_12px] bg-[position:0_0,0_6px,6px_-6px,-6px_0] dark:border-zinc-700">
-      {athlete.podiumPhotoUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img alt={`${athlete.name} podium`} className="h-full w-full object-cover object-center" src={athlete.podiumPhotoUrl} />
-      ) : (
-        <span className="m-auto text-xs font-black text-zinc-400">{initialsForName(athlete.name)}</span>
+    <span
+      aria-label={label}
+      className={cn(
+        "relative grid size-9 shrink-0 place-items-center rounded-[8px] border text-zinc-400 transition dark:text-zinc-500",
+        status === "custom" && "border-zinc-950 bg-zinc-950 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-950",
+        status === "default" && "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-200",
+        status === "empty" && "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900",
       )}
+      title={label}
+    >
+      <Icon size={15} strokeWidth={2.4} />
+      {status !== "empty" ? (
+        <span
+          className={cn(
+            "absolute -right-1 -top-1 size-2.5 rounded-full border-2 border-white dark:border-zinc-950",
+            status === "custom" ? "bg-primary-green" : "bg-amber-400",
+          )}
+        />
+      ) : null}
+    </span>
+  );
+}
+
+function AthletePhotoSummary({ athlete }: { athlete: AthleteRecord }) {
+  const coverage = photoCoverageForAthlete(athlete);
+
+  return (
+    <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between md:justify-start">
+      <div className="flex min-w-0 items-center gap-1.5" aria-label={`${athlete.name} photo slot status`}>
+        {PHOTO_SLOT_DEFINITIONS.map((slot) => (
+          <PhotoSlotIcon athlete={athlete} key={slot.key} slot={slot} />
+        ))}
+      </div>
+      <span
+        className={cn(
+          "w-fit rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.04em]",
+          coverage.customCount ? "bg-primary-green/12 text-primary-green" : "bg-zinc-100 text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400",
+        )}
+      >
+        {coverage.statusLabel}
+      </span>
+    </div>
+  );
+}
+
+function AthleteDetailDrawer({
+  athlete,
+  onManage,
+}: {
+  athlete: AthleteRecord;
+  onManage: () => void;
+}) {
+  const coverage = photoCoverageForAthlete(athlete);
+
+  return (
+    <div
+      className="grid gap-4 border-t border-zinc-100 bg-zinc-50/70 p-4 md:grid-cols-[120px_minmax(0,1fr)_auto] dark:border-zinc-800 dark:bg-zinc-900/35"
+      data-testid="athlete-detail-drawer"
+    >
+      <div className="grid gap-2">
+        <div className="grid h-36 w-full max-w-28 place-items-center overflow-hidden rounded-[8px] border border-zinc-200 bg-white text-xs font-black text-zinc-400 dark:border-zinc-700 dark:bg-zinc-950">
+          {athlete.podiumPhotoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img alt={`${athlete.name} main podium preview`} className="h-full w-full object-cover object-center" src={athlete.podiumPhotoUrl} />
+          ) : (
+            <ImageIcon size={24} />
+          )}
+        </div>
+        <span className="text-xs font-black text-zinc-600 dark:text-zinc-300">Main podium</span>
+      </div>
+
+      <div className="min-w-0">
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <span className="text-xs font-black uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Photo coverage</span>
+          <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-zinc-600 ring-1 ring-zinc-200 dark:bg-zinc-950 dark:text-zinc-300 dark:ring-zinc-800">
+            {coverage.statusLabel}
+          </span>
+          <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400">Custom / Default / Empty</span>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+          {PHOTO_SLOT_DEFINITIONS.map((slot) => {
+            const status = photoSlotStatus(athlete, slot.key);
+            const previewUrl = photoSlotPreviewUrl(athlete, slot.key);
+            const Icon = slot.icon;
+
+            return (
+              <div className="min-w-0 rounded-[8px] border border-zinc-200 bg-white p-2 dark:border-zinc-800 dark:bg-zinc-950" key={slot.key}>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="truncate text-xs font-black text-zinc-800 dark:text-zinc-100">{slot.label}</span>
+                  <span
+                    className={cn(
+                      "rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.04em]",
+                      status === "custom" && "bg-primary-green/12 text-primary-green",
+                      status === "default" && "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-200",
+                      status === "empty" && "bg-zinc-100 text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400",
+                    )}
+                  >
+                    {statusLabelForSlot(status)}
+                  </span>
+                </div>
+                <div className="grid h-20 place-items-center overflow-hidden rounded-[8px] border border-zinc-100 bg-zinc-50 text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900">
+                  {previewUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img alt={`${athlete.name} ${slot.label} preview`} className="h-full w-full object-cover object-center" src={previewUrl} />
+                  ) : (
+                    <Icon size={18} />
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="flex items-start justify-end">
+        <button className={buttonClassName("h-10 bg-zinc-950 px-3 text-white dark:bg-zinc-50 dark:text-zinc-950")} onClick={onManage} type="button">
+          <Edit3 size={15} />
+          Manage Photos
+        </button>
+      </div>
     </div>
   );
 }
@@ -263,28 +511,34 @@ function ImportAthleteModal({
   );
 }
 
-function ImageUploadControl({
-  description,
-  kind,
+function PhotoActionCard({
+  canClear,
+  canDownload,
+  onClear,
+  onDownload,
   onFileChange,
   pending,
+  previewShape = "podium",
   previewUrl,
+  title,
 }: {
-  description: string;
-  kind: AthleteImageKind;
-  onFileChange: (kind: AthleteImageKind, event: ChangeEvent<HTMLInputElement>) => void;
+  canClear: boolean;
+  canDownload: boolean;
+  onClear: () => void;
+  onDownload: () => void;
+  onFileChange: (event: ChangeEvent<HTMLInputElement>) => void;
   pending: boolean;
+  previewShape?: "podium" | "profile";
   previewUrl: string;
+  title: string;
 }) {
-  const preset = ATHLETE_IMAGE_CROP_PRESETS[kind];
-  const isProfile = kind === "profile";
+  const isProfile = previewShape === "profile";
 
   return (
     <div className="grid gap-3 rounded-[8px] border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900/80">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <div className="text-sm font-black text-zinc-800 dark:text-zinc-100">{preset.label}</div>
-          <div className="mt-1 text-xs font-semibold text-zinc-500 dark:text-zinc-400">{description}</div>
+          <div className="text-sm font-black text-zinc-800 dark:text-zinc-100">{title}</div>
         </div>
         {pending ? (
           <span className="rounded-full bg-primary-green/12 px-2 py-1 text-[11px] font-black uppercase tracking-[0.04em] text-primary-green dark:bg-secondary-teal/15 dark:text-secondary-teal">
@@ -302,22 +556,42 @@ function ImageUploadControl({
         >
           {previewUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img alt={`${preset.label} preview`} className="h-full w-full object-cover object-center" src={previewUrl} />
+            <img alt={`${title} preview`} className="h-full w-full object-cover object-center" src={previewUrl} />
           ) : (
             <ImagePlus size={20} />
           )}
         </div>
-        <label className={buttonClassName("flex-1 border border-dashed border-zinc-300 bg-white px-3 text-zinc-700 hover:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200")}>
+        <label className={buttonClassName("h-10 flex-1 border border-dashed border-zinc-300 bg-white px-3 text-zinc-700 hover:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200")}>
           <Crop size={16} />
           Choose & Crop
           <input
             accept="image/png,image/jpeg,image/webp"
-            aria-label={`Choose ${preset.label.toLowerCase()} file`}
+            aria-label={`Choose ${title.toLowerCase()} file`}
             className="sr-only"
-            onChange={(event) => onFileChange(kind, event)}
+            onChange={onFileChange}
             type="file"
           />
         </label>
+        <button
+          aria-label={`${title} download`}
+          className="grid size-10 cursor-pointer place-items-center rounded-[8px] border border-zinc-200 bg-white text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900"
+          disabled={!canDownload}
+          onClick={onDownload}
+          title={`Download ${title}`}
+          type="button"
+        >
+          <Download size={15} />
+        </button>
+        <button
+          aria-label={`${title} delete`}
+          className="grid size-10 cursor-pointer place-items-center rounded-[8px] border border-zinc-200 bg-white text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-950 dark:text-red-300 dark:hover:bg-red-950/30"
+          disabled={!canClear}
+          onClick={onClear}
+          title={`Delete ${title}`}
+          type="button"
+        >
+          <Trash2 size={15} />
+        </button>
       </div>
     </div>
   );
@@ -325,15 +599,17 @@ function ImageUploadControl({
 
 function SportPodiumPhotoSlots({
   defaultPreviewUrl,
+  onClear,
+  onDownload,
   onFileChange,
-  onUrlChange,
   pendingFiles,
   previewUrls,
   sportPhotoUrls,
 }: {
   defaultPreviewUrl: string;
+  onClear: (key: SportPodiumPhotoKey) => void;
+  onDownload: (key: SportPodiumPhotoKey) => void;
   onFileChange: (key: SportPodiumPhotoKey, event: ChangeEvent<HTMLInputElement>) => void;
-  onUrlChange: (key: SportPodiumPhotoKey, value: string) => void;
   pendingFiles: Partial<Record<SportPodiumPhotoKey, File>>;
   previewUrls: Partial<Record<SportPodiumPhotoKey, string>>;
   sportPhotoUrls: SportPodiumPhotoUrls;
@@ -342,54 +618,24 @@ function SportPodiumPhotoSlots({
     <section className="grid gap-3 rounded-[8px] border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900/80">
       <div>
         <h3 className="text-sm font-black text-zinc-900 dark:text-zinc-100">Sport Podium Photos</h3>
-        <p className="mt-1 text-xs font-semibold leading-5 text-zinc-500 dark:text-zinc-400">
-          Default podium photo is used when a sport slot is empty.
-        </p>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         {SPORT_PODIUM_PHOTO_OPTIONS.map((option) => {
           const specificPreviewUrl = previewUrls[option.key] || sportPhotoUrls[option.key] || "";
           const previewUrl = specificPreviewUrl || defaultPreviewUrl;
-          const usesFallback = !specificPreviewUrl;
 
           return (
-            <div className="grid gap-2 rounded-[8px] border border-zinc-200 bg-white p-3 dark:border-zinc-700 dark:bg-zinc-950" key={option.key}>
-              <div className="flex items-center justify-between gap-2">
-                <div className="text-xs font-black uppercase tracking-[0.08em] text-zinc-700 dark:text-zinc-200">{option.label}</div>
-                <span className={cn("rounded-full px-2 py-1 text-[10px] font-black uppercase tracking-[0.06em]", usesFallback ? "bg-zinc-100 text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400" : "bg-primary-green/12 text-primary-green")}>
-                  {pendingFiles[option.key] ? "Cropped" : usesFallback ? "Fallback" : "Custom"}
-                </span>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="grid h-20 w-[52px] shrink-0 place-items-center overflow-hidden rounded-[8px] border border-zinc-200 bg-zinc-100 text-xs font-black text-zinc-400 dark:border-zinc-700 dark:bg-zinc-900">
-                  {previewUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img alt={`${option.label} podium preview`} className="h-full w-full object-cover object-center" src={previewUrl} />
-                  ) : (
-                    <ImagePlus size={18} />
-                  )}
-                </div>
-                <div className="grid min-w-0 flex-1 gap-2">
-                  <input
-                    className={inputClassName("h-9 min-h-9 text-xs")}
-                    onChange={(event) => onUrlChange(option.key, event.target.value)}
-                    placeholder={`${option.label} podium URL`}
-                    value={sportPhotoUrls[option.key] ?? ""}
-                  />
-                  <label className={buttonClassName("h-9 border border-dashed border-zinc-300 bg-white px-3 text-xs text-zinc-700 hover:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200")}>
-                    <Crop size={14} />
-                    Choose & Crop
-                    <input
-                      accept="image/png,image/jpeg,image/webp"
-                      aria-label={`Choose ${option.label.toLowerCase()} podium file`}
-                      className="sr-only"
-                      onChange={(event) => onFileChange(option.key, event)}
-                      type="file"
-                    />
-                  </label>
-                </div>
-              </div>
-            </div>
+            <PhotoActionCard
+              canClear={Boolean(specificPreviewUrl)}
+              canDownload={Boolean(previewUrl)}
+              key={option.key}
+              onClear={() => onClear(option.key)}
+              onDownload={() => onDownload(option.key)}
+              onFileChange={(event) => onFileChange(option.key, event)}
+              pending={Boolean(pendingFiles[option.key])}
+              previewUrl={previewUrl}
+              title={option.label}
+            />
           );
         })}
       </div>
@@ -435,7 +681,6 @@ function PodiumPresetPreview({
 }) {
   const compactLayoutMode = isCompactExportLayoutMode(layoutMode) ? layoutMode : undefined;
   const compactRowCount = compactLayoutMode ? compactExportAthleteCountForLayout(compactLayoutMode) : undefined;
-  const compactTreatment = compactPhotoTreatmentForImage(previewUrl, hasTransparency);
   const foregroundMask = {
     WebkitMaskImage: "linear-gradient(to right, #000 0%, #000 58%, rgba(0,0,0,0.76) 76%, transparent 100%)",
     maskImage: "linear-gradient(to right, #000 0%, #000 58%, rgba(0,0,0,0.76) 76%, transparent 100%)",
@@ -451,38 +696,25 @@ function PodiumPresetPreview({
         data-export-layout={layoutMode}
         data-export-row-count={compactRowCount}
         data-export-row-height-preview={compactLayoutMode ? compactPresetPreviewHeightPx(compactLayoutMode) : undefined}
+        data-has-transparent-cutout={hasTransparency ? "true" : "false"}
         style={compactLayoutMode ? compactPresetPreviewFrameStyle(compactLayoutMode) : undefined}
       >
         {compactRowCount ? (
           <>
-            <div className="absolute inset-0" data-layer="compact-cutout-backdrop" style={compactCutoutBackdropStyle()} />
+            <div className="absolute inset-0" data-layer="compact-medal-backplate" style={compactCutoutBackdropStyle()} />
             {previewUrl ? (
-              <>
-                {compactTreatment === "photo" ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    alt=""
-                    aria-hidden="true"
-                    className="absolute inset-0 h-full w-full object-cover object-center opacity-70 blur-xl saturate-110"
-                    data-fit-strategy="dual-layer-background-fill"
-                    data-image-layer="compact-photo-background"
-                    src={previewUrl}
-                    style={compactPhotoBackgroundAdjustmentStyle(adjustment)}
-                  />
-                ) : null}
-                <div className="absolute inset-0" style={foregroundMask}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    alt={`${STORY_EXPORT_LAYOUT_LABELS[layoutMode]} preset preview`}
-                    className="h-full w-full object-contain object-center opacity-95 drop-shadow-[0_14px_28px_rgba(0,0,0,0.42)]"
-                    data-fit-strategy={compactTreatment === "cutout" ? "cutout-podium-backdrop" : "dual-layer-blend-foreground"}
-                    data-image-layer="compact-photo-foreground"
-                    data-image-position="adjustable-foreground"
-                    src={previewUrl}
-                    style={compactPhotoForegroundAdjustmentStyle(adjustment)}
-                  />
-                </div>
-              </>
+              <div className="absolute inset-0" style={foregroundMask}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  alt={`${STORY_EXPORT_LAYOUT_LABELS[layoutMode]} preset preview`}
+                  className="h-full w-full object-contain object-center opacity-95 drop-shadow-[0_14px_28px_rgba(0,0,0,0.42)]"
+                  data-fit-strategy="medal-backplate-foreground"
+                  data-image-layer="compact-photo-foreground"
+                  data-image-position="adjustable-foreground"
+                  src={previewUrl}
+                  style={compactPhotoForegroundAdjustmentStyle(adjustment)}
+                />
+              </div>
             ) : (
               <div className="grid h-full w-full place-items-center text-xs font-black uppercase tracking-[0.1em] text-white/35">No Photo</div>
             )}
@@ -623,29 +855,33 @@ function AthleteFormModal({
   form,
   normalizedPreview,
   onClose,
+  onDownloadPhoto,
+  onDownloadSportPodiumPhoto,
   onFileChange,
-  onManualUrlChange,
   onNameChange,
+  onPhotoClear,
   onPodiumAdjustmentChange,
   onPodiumAdjustmentResetAll,
   onPodiumAdjustmentResetLayout,
   onSave,
+  onSportPodiumClear,
   onSportPodiumFileChange,
-  onSportPodiumUrlChange,
   saving,
 }: {
   form: AthleteFormState;
   normalizedPreview: string;
   onClose: () => void;
+  onDownloadPhoto: (kind: AthletePhotoKind) => void;
+  onDownloadSportPodiumPhoto: (key: SportPodiumPhotoKey) => void;
   onFileChange: (kind: AthleteImageKind, event: ChangeEvent<HTMLInputElement>) => void;
-  onManualUrlChange: (kind: AthleteImageKind, value: string) => void;
   onNameChange: (value: string) => void;
+  onPhotoClear: (kind: AthleteImageKind) => void;
   onPodiumAdjustmentChange: (layoutMode: ExportLayoutMode, adjustment: ExportPhotoAdjustment) => void;
   onPodiumAdjustmentResetAll: () => void;
   onPodiumAdjustmentResetLayout: (layoutMode: ExportLayoutMode) => void;
   onSave: (event: FormEvent<HTMLFormElement>) => void;
+  onSportPodiumClear: (key: SportPodiumPhotoKey) => void;
   onSportPodiumFileChange: (key: SportPodiumPhotoKey, event: ChangeEvent<HTMLInputElement>) => void;
-  onSportPodiumUrlChange: (key: SportPodiumPhotoKey, value: string) => void;
   saving: boolean;
 }) {
   const profilePreviewUrl = form.profilePreviewUrl || form.profilePhotoUrl;
@@ -686,26 +922,34 @@ function AthleteFormModal({
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
-              <ImageUploadControl
-                description="1:1 crop with a circular avatar frame."
-                kind="profile"
-                onFileChange={onFileChange}
+              <PhotoActionCard
+                canClear={Boolean(profilePreviewUrl)}
+                canDownload={Boolean(profilePreviewUrl)}
+                onClear={() => onPhotoClear("profile")}
+                onDownload={() => onDownloadPhoto("profile")}
+                onFileChange={(event) => onFileChange("profile", event)}
                 pending={Boolean(form.pendingProfileFile)}
+                previewShape="profile"
                 previewUrl={profilePreviewUrl}
+                title="Profile"
               />
-              <ImageUploadControl
-                description="5:8 crop for the current Story podium export."
-                kind="podium"
-                onFileChange={onFileChange}
+              <PhotoActionCard
+                canClear={Boolean(podiumPreviewUrl)}
+                canDownload={Boolean(podiumPreviewUrl)}
+                onClear={() => onPhotoClear("podium")}
+                onDownload={() => onDownloadPhoto("podium")}
+                onFileChange={(event) => onFileChange("podium", event)}
                 pending={Boolean(form.pendingPodiumFile)}
                 previewUrl={podiumPreviewUrl}
+                title="Main Podium"
               />
             </div>
 
             <SportPodiumPhotoSlots
               defaultPreviewUrl={podiumPreviewUrl}
+              onClear={onSportPodiumClear}
+              onDownload={onDownloadSportPodiumPhoto}
               onFileChange={onSportPodiumFileChange}
-              onUrlChange={onSportPodiumUrlChange}
               pendingFiles={form.pendingSportPodiumFiles}
               previewUrls={form.sportPodiumPreviewUrls}
               sportPhotoUrls={form.sportPodiumPhotoUrls}
@@ -719,24 +963,6 @@ function AthleteFormModal({
               onResetLayout={onPodiumAdjustmentResetLayout}
               previewUrl={podiumPreviewUrl}
             />
-
-            <details className="rounded-[8px] border border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-950">
-              <summary className="cursor-pointer px-3 py-3 text-sm font-black text-zinc-700 dark:text-zinc-200">Advanced URLs</summary>
-              <div className="grid gap-2 border-t border-zinc-200 p-3 dark:border-zinc-800">
-                <input
-                  className={inputClassName("text-xs")}
-                  onChange={(event) => onManualUrlChange("profile", event.target.value)}
-                  placeholder="Profile photo URL"
-                  value={form.profilePhotoUrl}
-                />
-                <input
-                  className={inputClassName("text-xs")}
-                  onChange={(event) => onManualUrlChange("podium", event.target.value)}
-                  placeholder="Story podium image URL"
-                  value={form.podiumPhotoUrl}
-                />
-              </div>
-            </details>
           </div>
 
           <div className="flex justify-end gap-2 border-t border-zinc-200 px-5 py-4 dark:border-zinc-800">
@@ -909,6 +1135,7 @@ export function AthleteDatabaseApp({ embedded = false }: { embedded?: boolean } 
   const [importError, setImportError] = useState("");
   const [importing, setImporting] = useState(false);
   const [toast, setToast] = useState<AthleteToast | null>(null);
+  const [expandedAthleteId, setExpandedAthleteId] = useState<string | null>(null);
 
   const normalizedPreview = useMemo(() => normalizeAthleteName(form.name), [form.name]);
 
@@ -1066,17 +1293,34 @@ export function AthleteDatabaseApp({ embedded = false }: { embedded?: boolean } 
     }
   }
 
-  async function handleDownloadPhoto(athlete: AthleteRecord, kind: AthletePhotoKind) {
-    const photoUrl = kind === "profile" ? athlete.profilePhotoUrl : athlete.podiumPhotoUrl;
-    if (!photoUrl) {
-      setStatus(`${kind === "profile" ? "Profile" : "Podium"} photo is not available for ${athlete.name}`);
+  async function handleDownloadCurrentPhoto(kind: AthletePhotoKind) {
+    const photoUrl = kind === "profile" ? form.profilePreviewUrl || form.profilePhotoUrl : form.podiumPreviewUrl || form.podiumPhotoUrl;
+    if (!form.id || !photoUrl) {
+      setStatus(`${kind === "profile" ? "Profile" : "Podium"} photo is not available for ${form.name}`);
       return;
     }
 
     try {
-      setStatus(`Downloading ${kind === "profile" ? "profile" : "podium"} photo for ${athlete.name}`);
-      await downloadAthletePhoto(athlete.id, kind);
-      setStatus(`${kind === "profile" ? "Profile" : "Podium"} photo downloaded for ${athlete.name}`);
+      setStatus(`Downloading ${kind === "profile" ? "profile" : "podium"} photo for ${form.name}`);
+      await downloadAthletePhoto(form.id, kind);
+      setStatus(`${kind === "profile" ? "Profile" : "Podium"} photo downloaded for ${form.name}`);
+    } catch (error) {
+      setStatus(`Could not download photo: ${error instanceof Error ? error.message : "Unknown error"}`);
+    }
+  }
+
+  async function handleDownloadSportPodiumPhoto(key: SportPodiumPhotoKey) {
+    const photoUrl = form.sportPodiumPreviewUrls[key] || form.sportPodiumPhotoUrls[key] || form.podiumPreviewUrl || form.podiumPhotoUrl;
+    if (!photoUrl) {
+      setStatus(`${key} podium photo is not available for ${form.name}`);
+      return;
+    }
+
+    try {
+      const filenamePrefix = normalizeAthleteName(form.name).replace(/\s+/g, "-") || "athlete";
+      setStatus(`Downloading ${key} podium photo for ${form.name}`);
+      await downloadAthletePhotoUrl(photoUrl, `${filenamePrefix}-${key}-podium.webp`);
+      setStatus(`${key} podium photo downloaded for ${form.name}`);
     } catch (error) {
       setStatus(`Could not download photo: ${error instanceof Error ? error.message : "Unknown error"}`);
     }
@@ -1184,13 +1428,13 @@ export function AthleteDatabaseApp({ embedded = false }: { embedded?: boolean } 
     }
   }
 
-  function handleManualUrlChange(kind: AthleteImageKind, value: string) {
+  function handleClearPhoto(kind: AthleteImageKind) {
     setForm((current) => {
       if (kind === "profile") {
         revokePreviewUrl(current.profilePreviewUrl);
         return {
           ...current,
-          profilePhotoUrl: value,
+          profilePhotoUrl: "",
           profilePreviewUrl: "",
           pendingProfileFile: undefined,
         };
@@ -1199,7 +1443,7 @@ export function AthleteDatabaseApp({ embedded = false }: { embedded?: boolean } 
       revokePreviewUrl(current.podiumPreviewUrl);
       return {
         ...current,
-        podiumPhotoUrl: value,
+        podiumPhotoUrl: "",
         podiumPreviewUrl: "",
         podiumPreviewHasTransparency: undefined,
         pendingPodiumFile: undefined,
@@ -1207,12 +1451,13 @@ export function AthleteDatabaseApp({ embedded = false }: { embedded?: boolean } 
     });
   }
 
-  function handleSportPodiumUrlChange(key: SportPodiumPhotoKey, value: string) {
+  function handleClearSportPodiumPhoto(key: SportPodiumPhotoKey) {
     setForm((current) => {
       revokePreviewUrl(current.sportPodiumPreviewUrls[key] ?? "");
-      const nextUrls = { ...current.sportPodiumPhotoUrls, [key]: value };
+      const nextUrls = { ...current.sportPodiumPhotoUrls };
       const nextPreviewUrls = { ...current.sportPodiumPreviewUrls };
       const nextPendingFiles = { ...current.pendingSportPodiumFiles };
+      delete nextUrls[key];
       delete nextPreviewUrls[key];
       delete nextPendingFiles[key];
 
@@ -1332,15 +1577,17 @@ export function AthleteDatabaseApp({ embedded = false }: { embedded?: boolean } 
               form={form}
               normalizedPreview={normalizedPreview}
               onClose={resetFormModal}
+              onDownloadPhoto={(kind) => void handleDownloadCurrentPhoto(kind)}
+              onDownloadSportPodiumPhoto={(key) => void handleDownloadSportPodiumPhoto(key)}
               onFileChange={(kind, event) => void handleImageSelection(kind, event)}
-              onManualUrlChange={handleManualUrlChange}
               onNameChange={(name) => setForm((current) => ({ ...current, name }))}
+              onPhotoClear={handleClearPhoto}
               onPodiumAdjustmentChange={handlePodiumAdjustmentChange}
               onPodiumAdjustmentResetAll={handlePodiumAdjustmentResetAll}
               onPodiumAdjustmentResetLayout={handlePodiumAdjustmentResetLayout}
               onSave={(event) => void handleSave(event)}
+              onSportPodiumClear={handleClearSportPodiumPhoto}
               onSportPodiumFileChange={(key, event) => void handleSportPodiumImageSelection(key, event)}
-              onSportPodiumUrlChange={handleSportPodiumUrlChange}
               saving={saving}
             />
       ) : null}
@@ -1420,76 +1667,76 @@ export function AthleteDatabaseApp({ embedded = false }: { embedded?: boolean } 
             </button>
           </form>
 
-          <div className="w-full max-w-full overflow-x-auto rounded-[8px] border border-zinc-200 dark:border-zinc-800">
-            <div className="min-w-[840px]">
-              <div className="grid grid-cols-[64px_1fr_92px_156px_96px] gap-3 border-b border-zinc-200 bg-zinc-50 px-4 py-3 text-xs font-black uppercase tracking-[0.05em] text-zinc-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400">
-                <span>Avatar</span>
-                <span>Name</span>
-                <span>Podium</span>
-                <span>Download</span>
-                <span className="text-right">Actions</span>
-              </div>
-              {athletes.map((athlete) => (
-                <div
-                  className="grid grid-cols-[64px_1fr_92px_156px_96px] items-center gap-3 border-b border-zinc-100 px-4 py-4 last:border-b-0 dark:border-zinc-800"
+          <div className="grid gap-2" data-testid="athlete-database-list">
+            {athletes.map((athlete) => {
+              const isExpanded = expandedAthleteId === athlete.id;
+
+              return (
+                <article
+                  className={cn(
+                    "overflow-hidden rounded-[8px] border border-zinc-200 bg-white transition dark:border-zinc-800 dark:bg-zinc-950",
+                    isExpanded && "border-primary-green/30 shadow-[0_16px_34px_rgba(90,46,23,0.08)]",
+                  )}
                   key={athlete.id}
                 >
-                  <ProfilePreview athlete={athlete} />
-                  <div className="min-w-0">
-                    <div className="truncate text-base font-black text-zinc-950 dark:text-zinc-50">{athlete.name}</div>
-                    <div className="mt-1 truncate font-mono text-xs text-zinc-500 dark:text-zinc-400">{athlete.normalizedName}</div>
+                  <div className="grid gap-3 p-4 md:grid-cols-[56px_minmax(0,1fr)_minmax(280px,380px)_132px] md:items-center">
+                    <ProfilePreview athlete={athlete} />
+                    <div className="min-w-0">
+                      <div className="truncate text-base font-black text-zinc-950 dark:text-zinc-50">{athlete.name}</div>
+                      <div className="mt-1 truncate font-mono text-xs text-zinc-500 dark:text-zinc-400">{athlete.normalizedName}</div>
+                    </div>
+                    <AthletePhotoSummary athlete={athlete} />
+                    <div className="flex justify-start gap-2 md:justify-end">
+                      {isExpanded ? (
+                        <button
+                          aria-label={`Collapse ${athlete.name} photo details`}
+                          className="grid size-9 cursor-pointer place-items-center rounded-[8px] border border-zinc-200 bg-white text-zinc-600 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                          onClick={() => setExpandedAthleteId(null)}
+                          title={`Collapse ${athlete.name} photo details`}
+                          type="button"
+                        >
+                          <ChevronUp size={15} />
+                        </button>
+                      ) : (
+                        <button
+                          aria-label={`Expand ${athlete.name} photo details`}
+                          className="grid size-9 cursor-pointer place-items-center rounded-[8px] border border-zinc-200 bg-white text-zinc-600 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                          onClick={() => setExpandedAthleteId(athlete.id)}
+                          title={`Expand ${athlete.name} photo details`}
+                          type="button"
+                        >
+                          <ChevronDown size={15} />
+                        </button>
+                      )}
+                      <button
+                        aria-label={`Edit ${athlete.name}`}
+                        className="grid size-9 cursor-pointer place-items-center rounded-[8px] border border-zinc-200 bg-white text-zinc-600 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                        onClick={() => openEditModal(athlete)}
+                        title={`Edit ${athlete.name}`}
+                        type="button"
+                      >
+                        <Edit3 size={15} />
+                      </button>
+                      <button
+                        aria-label={`Delete ${athlete.name}`}
+                        className="grid size-9 cursor-pointer place-items-center rounded-[8px] border border-zinc-200 bg-white text-red-600 transition hover:bg-red-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-red-300 dark:hover:bg-red-950/30"
+                        onClick={() => void handleDelete(athlete)}
+                        title={`Delete ${athlete.name}`}
+                        type="button"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
                   </div>
-                  <PodiumPreview athlete={athlete} />
-                  <div className="flex items-center gap-2">
-                    <button
-                      aria-label={`Download ${athlete.name} profile photo`}
-                      className="inline-flex h-9 min-w-0 cursor-pointer items-center gap-1.5 rounded-[8px] border border-zinc-200 bg-white px-2 text-xs font-black text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900"
-                      disabled={!athlete.profilePhotoUrl}
-                      onClick={() => void handleDownloadPhoto(athlete, "profile")}
-                      title={athlete.profilePhotoUrl ? `Download ${athlete.name} profile photo` : "No profile photo"}
-                      type="button"
-                    >
-                      <Download size={13} />
-                      <span>Profile</span>
-                    </button>
-                    <button
-                      aria-label={`Download ${athlete.name} podium photo`}
-                      className="inline-flex h-9 min-w-0 cursor-pointer items-center gap-1.5 rounded-[8px] border border-zinc-200 bg-white px-2 text-xs font-black text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900"
-                      disabled={!athlete.podiumPhotoUrl}
-                      onClick={() => void handleDownloadPhoto(athlete, "podium")}
-                      title={athlete.podiumPhotoUrl ? `Download ${athlete.name} podium photo` : "No podium photo"}
-                      type="button"
-                    >
-                      <Download size={13} />
-                      <span>Podium</span>
-                    </button>
-                  </div>
-                  <div className="flex justify-end gap-2">
-                    <button
-                      className="grid size-9 cursor-pointer place-items-center rounded-[8px] border border-zinc-200 bg-white text-zinc-600 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900"
-                      onClick={() => openEditModal(athlete)}
-                      title={`Edit ${athlete.name}`}
-                      type="button"
-                    >
-                      <Edit3 size={15} />
-                    </button>
-                    <button
-                      className="grid size-9 cursor-pointer place-items-center rounded-[8px] border border-zinc-200 bg-white text-red-600 transition hover:bg-red-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-red-300 dark:hover:bg-red-950/30"
-                      onClick={() => void handleDelete(athlete)}
-                      title={`Delete ${athlete.name}`}
-                      type="button"
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-              {!athletes.length ? (
-                <div className="px-4 py-12 text-center text-sm font-semibold text-zinc-500 dark:text-zinc-400">
-                  {loading ? "Loading athletes..." : "No athletes yet. Create one to enable automatic leaderboard images."}
-                </div>
-              ) : null}
-            </div>
+                  {isExpanded ? <AthleteDetailDrawer athlete={athlete} onManage={() => openEditModal(athlete)} /> : null}
+                </article>
+              );
+            })}
+            {!athletes.length ? (
+              <div className="rounded-[8px] border border-zinc-200 px-4 py-12 text-center text-sm font-semibold text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+                {loading ? "Loading athletes..." : "No athletes yet. Create one to enable automatic leaderboard images."}
+              </div>
+            ) : null}
           </div>
         </div>
       </section>

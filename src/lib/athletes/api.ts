@@ -20,8 +20,8 @@ export interface AthleteImportSummary {
 
 export interface AthletePayload {
   name: string;
-  profilePhotoUrl?: string;
-  podiumPhotoUrl?: string;
+  profilePhotoUrl?: string | null;
+  podiumPhotoUrl?: string | null;
   sportPodiumPhotoUrls?: SportPodiumPhotoUrls;
   podiumPhotoAdjustments?: AthletePodiumPhotoAdjustments;
 }
@@ -121,6 +121,23 @@ export async function downloadAthletePhoto(id: string, kind: AthletePhotoKind): 
   const link = document.createElement("a");
   link.href = objectUrl;
   link.download = filenameFromContentDisposition(response.headers.get("content-disposition"), `${kind}-photo.jpg`);
+  document.body.append(link);
+  link.click();
+  link.remove();
+  URL.revokeObjectURL(objectUrl);
+}
+
+export async function downloadAthletePhotoUrl(photoUrl: string, fallbackFilename: string): Promise<void> {
+  const response = await fetch(photoUrl, { cache: "no-store" });
+  if (!response.ok) {
+    throw new Error(response.statusText || "Photo download failed");
+  }
+
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = objectUrl;
+  link.download = fallbackFilename;
   document.body.append(link);
   link.click();
   link.remove();

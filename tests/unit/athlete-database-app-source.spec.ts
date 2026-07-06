@@ -59,17 +59,57 @@ test("athlete save flow shows a toast for success and failure", () => {
   expect(source).toContain('showToast(`Gagal menyimpan atlet: ${message}`, "error")');
 });
 
-test("athlete database rows expose stored photo download actions", () => {
+test("athlete database rows use a hybrid list with expandable photo details", () => {
   const source = athleteDatabaseSource();
+  const listStart = source.indexOf('data-testid="athlete-database-list"');
+  const listBlock = source.slice(listStart);
 
-  expect(source).toContain("downloadAthletePhoto");
-  expect(source).toContain("handleDownloadPhoto");
-  expect(source).toContain('aria-label={`Download ${athlete.name} profile photo`}');
-  expect(source).toContain('aria-label={`Download ${athlete.name} podium photo`}');
-  expect(source).toContain("disabled={!athlete.profilePhotoUrl}");
-  expect(source).toContain("disabled={!athlete.podiumPhotoUrl}");
+  expect(source).toContain("expandedAthleteId");
+  expect(source).toContain("AthletePhotoSummary");
+  expect(source).toContain("AthleteDetailDrawer");
+  expect(source).toContain("photoCoverageForAthlete");
+  expect(source).toContain("SPORT_PODIUM_PHOTO_OPTIONS");
+  expect(source).toContain('data-testid="athlete-detail-drawer"');
+  expect(source).toContain('aria-label={`Expand ${athlete.name} photo details`}');
+  expect(source).toContain('aria-label={`Collapse ${athlete.name} photo details`}');
+  expect(listBlock).not.toContain("grid-cols-[64px_minmax(180px,1fr)_420px_96px]");
+  expect(listBlock).not.toContain("<span>Photos</span>");
+  expect(listBlock).not.toContain("<span>Download</span>");
+  expect(listBlock).not.toContain("handleDownloadPhoto");
+  expect(source).not.toContain("max-w-14 truncate");
+});
+
+test("athlete detail drawer previews photos and opens the existing edit modal", () => {
+  const source = athleteDatabaseSource();
+  const drawerStart = source.indexOf("function AthleteDetailDrawer");
+  const drawerEnd = source.indexOf("function ImportAthleteModal", drawerStart);
+  const drawerBlock = source.slice(drawerStart, drawerEnd);
+
+  expect(drawerStart).toBeGreaterThan(-1);
+  expect(drawerBlock).toContain("Manage Photos");
+  expect(drawerBlock).toContain("onManage");
+  expect(drawerBlock).toContain("Main podium");
+  expect(drawerBlock).toContain("Custom");
+  expect(drawerBlock).toContain("Default");
+  expect(source).toContain("onManage={() => openEditModal(athlete)}");
+});
+
+test("athlete edit modal keeps photo download and delete actions on each photo card", () => {
+  const source = athleteDatabaseSource();
+  const modalStart = source.indexOf("function AthleteFormModal");
+  const modalEnd = source.indexOf("function CropImageModal", modalStart);
+  const modalBlock = source.slice(modalStart, modalEnd);
+
+  expect(source).toContain("PhotoActionCard");
+  expect(source).toContain("handleClearPhoto");
+  expect(source).toContain("handleClearSportPodiumPhoto");
+  expect(source).toContain('aria-label={`${title} download`}');
+  expect(source).toContain('aria-label={`${title} delete`}');
   expect(source).toContain("<Download");
-  expect(source).toContain("<span>Download</span>");
+  expect(source).toContain("<Trash2");
+  expect(modalBlock).not.toContain("Fallback");
+  expect(modalBlock).not.toContain("podium URL");
+  expect(modalBlock).not.toContain("Profile photo URL");
 });
 
 test("initial athlete database load is scheduled directly from the effect", () => {

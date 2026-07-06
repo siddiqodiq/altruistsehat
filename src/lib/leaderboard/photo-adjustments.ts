@@ -129,20 +129,6 @@ export function compactPhotoForegroundAdjustmentStyle(adjustment: ExportPhotoAdj
   };
 }
 
-export function compactPhotoBackgroundAdjustmentStyle(adjustment: ExportPhotoAdjustment): {
-  objectPosition: string;
-  transform: string;
-  transformOrigin: "center center";
-} {
-  const zoom = Math.min(1.5, Math.max(1.08, finiteNumber(adjustment.zoom, DEFAULT_EXPORT_PHOTO_ADJUSTMENT.zoom)));
-
-  return {
-    objectPosition: "50% 50%",
-    transform: `scale(${zoom})`,
-    transformOrigin: "center center",
-  };
-}
-
 export function compactPhotoTreatmentForImage(photoUrl?: string, hasTransparency = false): CompactPhotoTreatment {
   if (hasTransparency) {
     return "cutout";

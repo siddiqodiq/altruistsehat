@@ -19,8 +19,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const OptionalUrlSchema = z.preprocess(
-  (value) => (typeof value === "string" && !value.trim() ? undefined : value),
-  z.string().url().optional(),
+  (value) => (typeof value === "string" && !value.trim() ? null : value),
+  z.string().url().nullable().optional(),
 );
 
 const AthletePayloadSchema = z.object({
