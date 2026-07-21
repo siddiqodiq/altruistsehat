@@ -3,7 +3,7 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 
 import type { CSSProperties, ChangeEvent } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { readSheet } from "read-excel-file/browser";
 import {
   Activity,
@@ -24,6 +24,7 @@ import {
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { LeaderboardCanvas } from "./LeaderboardCanvas";
+import { downloadExportFrame } from "@/lib/leaderboard/export-image";
 import { lookupAthletesByName } from "@/lib/athletes/client-cache";
 import { enrichAthletesWithDatabase } from "@/lib/athletes/enrichment";
 import { normalizeAthleteName } from "@/lib/athletes/normalize";
@@ -126,35 +127,6 @@ function buildTrendValues(snapshots: LeaderboardWeekSnapshot[], draft: Leaderboa
     .sort((left, right) => new Date(left.exportedAt).getTime() - new Date(right.exportedAt).getTime())
     .map((snapshot) => snapshot.total)
     .filter((value) => Number.isFinite(value));
-}
-
-function filenameFromResponse(response: Response, format: OutputFormat): string {
-  const fallback = format === "story" ? "leaderboard-story.png" : "leaderboard-feed.png";
-  const disposition = response.headers.get("content-disposition");
-  const match = disposition?.match(/filename="?([^"]+)"?/i);
-  return match?.[1] ?? fallback;
-}
-
-function downloadBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  document.body.append(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
-}
-
-async function exportErrorMessage(response: Response): Promise<string> {
-  const contentType = response.headers.get("content-type") ?? "";
-  if (contentType.includes("application/json")) {
-    const payload = await response.json().catch(() => null);
-    const message = payload && typeof payload === "object" && "message" in payload ? String(payload.message) : response.statusText;
-    return `Export failed: ${message}`;
-  }
-
-  return `Export failed: ${response.statusText || `HTTP ${response.status}`}`;
 }
 
 function Button({
@@ -359,6 +331,7 @@ export function LeaderboardDashboard() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [status, setStatus] = useState("Read-only");
   const [exporting, setExporting] = useState(false);
+  const exportFrameRef = useRef<HTMLDivElement>(null);
 
   const ranked = useMemo(() => buildLeaderboardRows(draft.spec.athletes, 10), [draft.spec.athletes]);
   const total = useMemo(() => sumMetricValues(draft.spec.athletes), [draft.spec.athletes]);
@@ -581,18 +554,7 @@ export function LeaderboardDashboard() {
     setStatus("Rendering PNG...");
 
     try {
-      const response = await fetch("/api/export", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ format: STORY_FORMAT, spec: displaySpec }),
-      });
-
-      if (!response.ok) {
-        throw new Error(await exportErrorMessage(response));
-      }
-
-      const blob = await response.blob();
-      downloadBlob(blob, filenameFromResponse(response, STORY_FORMAT));
+      await downloadExportFrame(exportFrameRef.current, STORY_FORMAT);
       setStatus("PNG downloaded");
     } catch (error) {
       setStatus(error instanceof Error ? error.message : "Export failed");
@@ -822,6 +784,7 @@ export function LeaderboardDashboard() {
                   }
                 >
                   <div
+                    ref={exportFrameRef}
                     style={{
                       height: OUTPUT_DIMENSIONS[STORY_FORMAT].height,
                       transform: `scale(${PREVIEW_SCALE})`,

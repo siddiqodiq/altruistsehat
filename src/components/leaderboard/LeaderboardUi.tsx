@@ -1,6 +1,16 @@
 "use client";
 
-import { useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent,
+  type PointerEvent,
+  type ReactNode,
+  type RefObject,
+} from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import {
@@ -9,6 +19,7 @@ import {
   Download,
   Dumbbell,
   Footprints,
+  Loader2,
   RefreshCw,
   Save,
   Search,
@@ -1245,11 +1256,56 @@ function exportPhotoAdjustmentValue(
   });
 }
 
+/**
+ * Reports whether the athlete photos inside the preview frame are still downloading, so the
+ * export stays blocked until the poster shows what will actually be captured.
+ */
+function usePreviewPhotosLoading(frameRef: RefObject<HTMLDivElement | null>, spec: LeaderboardSpec, open: boolean) {
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    const pending = Array.from(frameRef.current?.querySelectorAll("img") ?? []).filter(
+      (image) => !image.complete || image.naturalWidth === 0,
+    );
+
+    setLoading(open && pending.length > 0);
+
+    if (!open || !pending.length) {
+      return;
+    }
+
+    let remaining = pending.length;
+    const settle = () => {
+      remaining -= 1;
+      if (remaining <= 0) {
+        setLoading(false);
+      }
+    };
+
+    for (const image of pending) {
+      image.addEventListener("load", settle, { once: true });
+      image.addEventListener("error", settle, { once: true });
+    }
+
+    return () => {
+      for (const image of pending) {
+        image.removeEventListener("load", settle);
+        image.removeEventListener("error", settle);
+      }
+    };
+  }, [frameRef, open, spec]);
+
+  return loading;
+}
+
 export function ExportPreviewModal({
   exportAthleteSelection,
   exportAthleteSelectionOptions,
   exportPhotoAdjustments,
+  exportFrameRef,
   exporting,
+  photosError,
+  photosLoading,
   savingPhotoAdjustment,
   onClose,
   onDownload,
@@ -1264,7 +1320,10 @@ export function ExportPreviewModal({
   exportAthleteSelection: ExportAthleteSelection;
   exportAthleteSelectionOptions: ExportAthleteSelectionOption[];
   exportPhotoAdjustments: ExportPhotoAdjustments;
+  exportFrameRef: RefObject<HTMLDivElement | null>;
   exporting: boolean;
+  photosError: string | null;
+  photosLoading: boolean;
   savingPhotoAdjustment: boolean;
   onClose: () => void;
   onDownload: () => void;
@@ -1277,6 +1336,8 @@ export function ExportPreviewModal({
   spec: LeaderboardSpec;
 }) {
   const previewScale = 0.28;
+  const photosDownloading = usePreviewPhotosLoading(exportFrameRef, spec, open);
+  const previewLoading = photosLoading || photosDownloading;
   const layoutMode = exportLayoutModeForPreview(spec);
   const adjustableAthletes = useMemo(() => visibleExportPhotoAthletes(spec), [spec]);
   const currentLayoutAdjustments = exportPhotoAdjustments[layoutMode] ?? {};
@@ -1332,7 +1393,16 @@ export function ExportPreviewModal({
           </button>
         </div>
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_220px]">
-          <div className="overflow-auto rounded-xl bg-primary-charcoal p-4">
+          <div className="relative overflow-auto rounded-xl bg-primary-charcoal p-4">
+            {previewLoading ? (
+              <div
+                className="absolute inset-0 z-10 grid place-content-center justify-items-center gap-3 rounded-xl bg-primary-charcoal/80 backdrop-blur-sm"
+                data-testid="export-preview-loading"
+              >
+                <Loader2 className="size-8 animate-spin text-secondary-sand" />
+                <p className="text-xs font-bold uppercase tracking-[0.12em] text-secondary-sand">Memuat foto atlet...</p>
+              </div>
+            ) : null}
             <div
               style={
                 {
@@ -1342,6 +1412,7 @@ export function ExportPreviewModal({
               }
             >
               <div
+                ref={exportFrameRef}
                 style={{
                   height: OUTPUT_DIMENSIONS[STORY_FORMAT].height,
                   transform: `scale(${previewScale})`,
@@ -1524,13 +1595,30 @@ export function ExportPreviewModal({
                 <p className="mt-3 text-xs font-semibold leading-5 text-primary-charcoal/55 dark:text-gray-400">Tidak ada foto atlet untuk layout ini.</p>
               )}
             </div>
+            {photosError ? (
+              <div
+                className="rounded-xl border border-red-200 bg-red-50 p-3 dark:border-red-900/50 dark:bg-red-950"
+                data-testid="export-photos-error"
+                role="alert"
+              >
+                <p className="text-xs font-semibold leading-5 text-red-900 dark:text-red-100">{photosError}</p>
+                <button
+                  className="mt-2 inline-flex h-8 items-center gap-1.5 rounded-lg bg-red-600 px-3 text-xs font-bold text-white transition hover:bg-red-700"
+                  onClick={() => window.location.reload()}
+                  type="button"
+                >
+                  <RefreshCw className="size-3.5" />
+                  Refresh halaman
+                </button>
+              </div>
+            ) : null}
             <button
               className={buttonClassName("bg-primary-brown text-white shadow-[0_12px_30px_rgb(90,46,23,0.18)] hover:bg-primary-brown/90")}
-              disabled={exporting}
+              disabled={exporting || previewLoading}
               onClick={onDownload}
               type="button"
             >
-              {exporting ? "Rendering..." : "Download PNG"}
+              {previewLoading ? "Memuat foto..." : exporting ? "Rendering..." : "Download PNG"}
             </button>
             <button
               className={buttonClassName("border border-secondary-sand bg-white text-primary-charcoal hover:bg-secondary-sand/30 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100")}

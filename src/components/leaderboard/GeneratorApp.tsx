@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties, ChangeEvent, ReactNode } from "react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { readSheet } from "read-excel-file/browser";
 import {
@@ -19,6 +19,7 @@ import {
   Users,
 } from "lucide-react";
 import { LeaderboardCanvas } from "./LeaderboardCanvas";
+import { downloadExportFrame } from "@/lib/leaderboard/export-image";
 import { listAthletes } from "@/lib/athletes/api";
 import { lookupAthletesByName } from "@/lib/athletes/client-cache";
 import { enrichAthletesWithDatabase, type AthleteEnrichmentResult } from "@/lib/athletes/enrichment";
@@ -174,13 +175,6 @@ async function saveProjectToDatabase(clientId: string, project: LeaderboardProje
   });
 }
 
-function filenameFromResponse(response: Response, format: OutputFormat): string {
-  const fallback = format === "story" ? "leaderboard-story.png" : "leaderboard-feed.png";
-  const disposition = response.headers.get("content-disposition");
-  const match = disposition?.match(/filename="?([^"]+)"?/i);
-  return match?.[1] ?? fallback;
-}
-
 function formatExportedAt(value: string) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) {
@@ -191,34 +185,6 @@ function formatExportedAt(value: string) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(date);
-}
-
-function downloadBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  document.body.append(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
-}
-
-async function exportErrorMessage(response: Response): Promise<string> {
-  const contentType = response.headers.get("content-type") ?? "";
-  if (contentType.includes("application/json")) {
-    const payload = await response.json().catch(() => null);
-    if (payload && typeof payload === "object") {
-      const record = payload as { error?: unknown; message?: unknown };
-      const reason = typeof record.error === "string" ? record.error : typeof record.message === "string" ? record.message : response.statusText;
-      return `Export failed. Reason: ${reason}. Try again.`;
-    }
-  }
-
-  const raw = await response.text().catch(() => "");
-  const looksLikeHtml = /^\s*<!doctype html/i.test(raw) || /^\s*<html/i.test(raw);
-  const reason = looksLikeHtml ? response.statusText || `HTTP ${response.status}` : raw || response.statusText || `HTTP ${response.status}`;
-  return `Export failed. Reason: ${reason}. Try again.`;
 }
 
 function Field({
@@ -469,6 +435,7 @@ export function GeneratorApp() {
   const [athleteOptionsError, setAthleteOptionsError] = useState<string | null>(null);
   const [openAthleteId, setOpenAthleteId] = useState<string | null>(null);
   const [athleteSearchValue, setAthleteSearchValue] = useState("");
+  const exportFrameRef = useRef<HTMLDivElement>(null);
   const dimensions = OUTPUT_DIMENSIONS[STORY_FORMAT];
   const spec = useMemo(
     () => deriveGeneratorSpec(draft.spec, draft.seasonYear, draft.weekNumber, draft.templateId),
@@ -684,24 +651,12 @@ export function GeneratorApp() {
     setStatus("Rendering PNG");
     setDraft((current) => updateProjectDraft(current, { status: "Exporting" }));
     try {
-      const response = await fetch("/api/export", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ format: STORY_FORMAT, spec }),
-      });
-
-      if (!response.ok) {
-        throw new Error(await exportErrorMessage(response));
-      }
-
-      const blob = await response.blob();
-      const filename = filenameFromResponse(response, STORY_FORMAT);
-      downloadBlob(blob, filename);
+      const { filename, size } = await downloadExportFrame(exportFrameRef.current, STORY_FORMAT);
       setDraft((current) =>
         recordExportHistory(current, {
           filename,
           format: STORY_FORMAT,
-          size: blob.size,
+          size,
         }),
       );
       setStatus("PNG downloaded");
@@ -927,6 +882,7 @@ export function GeneratorApp() {
             className="leaderboard-preview"
             data-format={STORY_FORMAT}
             data-testid="preview-frame"
+            ref={exportFrameRef}
             style={
               {
                 "--preview-width": `${dimensions.width}px`,

@@ -42,12 +42,44 @@ test("admin export preview wires the athlete count picker into preview and downl
   expect(uiSource).toContain("savingPhotoAdjustment");
 });
 
-test("PNG export route hides Next dev indicator overlays before taking the frame screenshot", () => {
-  const routeSource = source("src/app/api/export/route.ts");
+test("PNG export captures the preview frame in the browser at full output resolution", () => {
+  const imageSource = source("src/lib/leaderboard/export-image.ts");
 
-  expect(routeSource).toContain("NEXT_DEVTOOLS_HIDE_CSS");
-  expect(routeSource).toContain("nextjs-portal");
-  expect(routeSource).toContain("[data-nextjs");
-  expect(routeSource).toContain("page.addStyleTag");
-  expect(routeSource).toMatch(/hideNextDevIndicators\(page\)[\s\S]*page\.locator\("\[data-export-frame\]"\)\.screenshot/);
+  expect(imageSource).toContain("[data-export-frame]");
+  // A scaled preview wrapper must not shrink the PNG, and the DPR must not enlarge it.
+  expect(imageSource).toContain("OUTPUT_DIMENSIONS[format]");
+  expect(imageSource).toContain("pixelRatio: 1");
+  expect(imageSource).toContain('transform: "none"');
+  expect(imageSource).toContain("waitForFrameAssets");
+});
+
+test("export preview blocks download while athlete photos load and guides a refresh on failure", () => {
+  const adminSource = source("src/components/leaderboard/LeaderboardAdminManager.tsx");
+  const uiSource = source("src/components/leaderboard/LeaderboardUi.tsx");
+
+  // A failed athlete lookup must not surface a raw "TypeError: fetch failed".
+  expect(adminSource).toContain("ATHLETE_PHOTO_FETCH_ERROR");
+  expect(adminSource).toContain("setExportPhotosLoading");
+  expect(adminSource).toMatch(/if \(exportPhotosLoading\) \{\s*return;/);
+
+  expect(uiSource).toContain("usePreviewPhotosLoading");
+  expect(uiSource).toContain("export-preview-loading");
+  expect(uiSource).toContain("Refresh halaman");
+  expect(uiSource).toContain("window.location.reload()");
+  expect(uiSource).toContain("disabled={exporting || previewLoading}");
+});
+
+test("PNG export no longer depends on a server-side headless browser", () => {
+  const clientSource = source("src/lib/leaderboard/export-client.ts");
+
+  expect(clientSource).not.toContain("/api/export");
+  expect(clientSource).toContain("downloadExportFrame");
+
+  for (const componentPath of [
+    "src/components/leaderboard/GeneratorApp.tsx",
+    "src/components/leaderboard/LeaderboardDashboard.tsx",
+    "src/components/leaderboard/LeaderboardAdminManager.tsx",
+  ]) {
+    expect(source(componentPath)).not.toContain("/api/export");
+  }
 });

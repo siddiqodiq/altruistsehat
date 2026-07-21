@@ -1,4 +1,5 @@
 import { STORY_FORMAT } from "./dashboard-state";
+import { downloadExportFrame } from "./export-image";
 import { resolveMetricTotal } from "./metrics";
 import { clampExportPhotoAdjustment, DEFAULT_EXPORT_PHOTO_ADJUSTMENTS } from "./photo-adjustments";
 import { buildLeaderboardRows } from "./ranking";
@@ -30,37 +31,12 @@ const compactExportLayouts = [
   { athleteCount: 1, label: "Top 1", value: "top1" },
 ] as const satisfies ReadonlyArray<{ athleteCount: number; label: string; value: ExportLayoutMode }>;
 
+/** Shown when the athlete-photo lookup cannot reach the database; a reload recovers it. */
+export const ATHLETE_PHOTO_FETCH_ERROR =
+  "Gagal memuat foto atlet dari database. Silakan refresh halaman, lalu coba export lagi.";
+
 export const defaultExportPhotoAdjustment = DEFAULT_EXPORT_PHOTO_ADJUSTMENTS.podiumTop10;
 export { clampExportPhotoAdjustment };
-
-export function filenameFromResponse(response: Response, format: OutputFormat): string {
-  const fallback = format === "story" ? "leaderboard-story.png" : "leaderboard-feed.png";
-  const disposition = response.headers.get("content-disposition");
-  const match = disposition?.match(/filename="?([^"]+)"?/i);
-  return match?.[1] ?? fallback;
-}
-
-export function downloadBlob(blob: Blob, filename: string) {
-  const url = URL.createObjectURL(blob);
-  const anchor = document.createElement("a");
-  anchor.href = url;
-  anchor.download = filename;
-  document.body.append(anchor);
-  anchor.click();
-  anchor.remove();
-  URL.revokeObjectURL(url);
-}
-
-export async function exportErrorMessage(response: Response): Promise<string> {
-  const contentType = response.headers.get("content-type") ?? "";
-  if (contentType.includes("application/json")) {
-    const payload = await response.json().catch(() => null);
-    const message = payload && typeof payload === "object" && "message" in payload ? String(payload.message) : response.statusText;
-    return `Export failed: ${message}`;
-  }
-
-  return `Export failed: ${response.statusText || `HTTP ${response.status}`}`;
-}
 
 export function specWithTrend(spec: LeaderboardSpec, snapshots: LeaderboardWeekSnapshot[]) {
   const trendValues = snapshots
@@ -222,19 +198,14 @@ export function specWithDatabaseAthletePhotos(spec: LeaderboardSpec, databaseAth
   };
 }
 
-export async function downloadLeaderboardPng(spec: LeaderboardSpec, format: OutputFormat = STORY_FORMAT): Promise<string> {
-  const response = await fetch("/api/export", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ format, spec }),
-  });
-
-  if (!response.ok) {
-    throw new Error(await exportErrorMessage(response));
-  }
-
-  const blob = await response.blob();
-  const filename = filenameFromResponse(response, format);
-  downloadBlob(blob, filename);
+/**
+ * Captures the poster straight from the already-rendered preview DOM. Rendering server-side
+ * needed a headless Chromium, which cannot run on serverless hosting.
+ */
+export async function downloadLeaderboardPng(
+  container: HTMLElement | null,
+  format: OutputFormat = STORY_FORMAT,
+): Promise<string> {
+  const { filename } = await downloadExportFrame(container, format);
   return filename;
 }

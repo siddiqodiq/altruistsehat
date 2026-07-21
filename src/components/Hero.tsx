@@ -44,9 +44,9 @@ export default function Hero() {
     <section className="relative pt-24 pb-20 lg:pt-28 lg:pb-32 overflow-hidden bg-gradient-to-b from-primary-beige to-secondary-sand/30 dark:from-[#121212] dark:to-zinc-900 transition-colors duration-300">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
-          
+
           {/* Text Content */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
@@ -55,16 +55,16 @@ export default function Hero() {
             <div className="inline-block px-4 py-1.5 rounded-full bg-secondary-teal/10 dark:bg-secondary-teal/20 text-primary-green dark:text-secondary-teal font-medium text-sm mb-2 border border-secondary-teal/20 dark:border-secondary-teal/30">
               Komunitas Olahraga
             </div>
-            
+
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-poppins font-bold text-primary-charcoal dark:text-gray-100 leading-[1.15]">
-              Sehat Hari Ini, <br className="hidden md:block" />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-brown to-primary-green dark:from-secondary-sand dark:to-secondary-teal">Lebih Baik Nanti.</span>
+              Chasing Better <br className="hidden md:block" />
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-brown to-primary-green dark:from-secondary-sand dark:to-secondary-teal">Every Day.</span>
             </h1>
-            
+
             <p className="text-lg text-primary-charcoal/80 dark:text-gray-300 max-w-xl font-inter leading-relaxed">
               Komunitas olahraga bareng untuk hidup lebih berkualitas. Ayo olahraga bareng dan saling mengenal.
             </p>
-            
+
             <div className="flex pt-4">
               <div className="bg-primary-brown dark:bg-[#2A2A2A] text-white pl-8 pr-6 py-3.5 rounded-full font-medium shadow-lg flex items-center gap-4">
                 <span>Join with us</span>
@@ -81,26 +81,26 @@ export default function Hero() {
           </motion.div>
 
           {/* Image Content */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.8, delay: 0.2 }}
             className="order-1 lg:order-2 lg:col-span-6 relative mb-16 sm:mb-12 lg:mb-0"
           >
             <div className="relative rounded-3xl overflow-hidden aspect-[4/3] lg:aspect-square flex items-center justify-center p-8">
-              <Image 
-                src={currentLogo} 
-                alt="Altruist Sehat Logo" 
+              <Image
+                src={currentLogo}
+                alt="Altruist Sehat Logo"
                 fill
                 className="object-contain p-8 drop-shadow-2xl"
                 priority
               />
             </div>
-            
+
             {/* Floating Elements Container */}
             <div className="absolute -bottom-8 sm:-bottom-6 left-1/2 -translate-x-1/2 w-max flex flex-row items-center justify-center gap-2 sm:gap-4 z-10">
               {/* Floating Element 1: Anggota Aktif */}
-              <motion.div 
+              <motion.div
                 animate={{ y: [0, -10, 0] }}
                 transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
                 className="bg-white/95 sm:bg-white dark:bg-zinc-800/95 dark:sm:bg-zinc-800 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl shadow-xl border border-secondary-sand/30 dark:border-zinc-700 backdrop-blur-sm w-auto transition-colors"
@@ -117,7 +117,7 @@ export default function Hero() {
               </motion.div>
 
               {/* Floating Element 2: Lokasi Area */}
-              <motion.div 
+              <motion.div
                 animate={{ y: [0, -10, 0] }}
                 transition={{ repeat: Infinity, duration: 4, delay: 1, ease: "easeInOut" }}
                 className="bg-white/95 sm:bg-white dark:bg-zinc-800/95 dark:sm:bg-zinc-800 p-2.5 sm:p-4 rounded-xl sm:rounded-2xl shadow-xl border border-secondary-sand/30 dark:border-zinc-700 backdrop-blur-sm w-auto transition-colors"
@@ -137,7 +137,7 @@ export default function Hero() {
 
         </div>
       </div>
-      
+
       {/* Background Decor */}
       <div className="absolute top-1/2 left-0 w-64 h-64 bg-secondary-teal/20 rounded-full blur-3xl -translate-y-1/2 -translate-x-1/2"></div>
       <div className="absolute top-20 right-0 w-96 h-96 bg-primary-brown/10 rounded-full blur-3xl translate-x-1/3"></div>
