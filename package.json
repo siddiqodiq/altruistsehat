@@ -10,7 +10,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:unit": "playwright test tests/unit"
+    "test:unit": "playwright test tests/unit",
+    "test:a11y": "playwright test --config=playwright.a11y.config.ts"
   },
   "dependencies": {
     "@sparticuz/chromium-min": "^149.0.0",
