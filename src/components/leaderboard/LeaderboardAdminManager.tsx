@@ -101,6 +101,7 @@ import {
 } from "./LeaderboardUi";
 import { buildLeaderboardStory } from "@/lib/leaderboard/story";
 import { cn } from "@/lib/utils";
+import { useModalA11y } from "@/hooks/useModalA11y";
 
 function nextAthlete(): AthleteEntry {
   return {
@@ -641,7 +642,7 @@ function AdminLeaderboardTable({
                         value={athlete.value}
                       />
                     </td>
-                    <td className={cn("whitespace-nowrap px-4 py-3 text-center text-sm font-black", movement?.delta && movement.delta > 0 ? "text-primary-green dark:text-secondary-teal" : movement?.delta && movement.delta < 0 ? "text-secondary-clay dark:text-secondary-sand" : "text-primary-charcoal/40 dark:text-gray-500")}>
+                    <td className={cn("whitespace-nowrap px-4 py-3 text-center text-sm font-black", movement?.delta && movement.delta > 0 ? "text-primary-green dark:text-secondary-teal" : movement?.delta && movement.delta < 0 ? "text-secondary-clay dark:text-secondary-sand" : "text-primary-charcoal/65 dark:text-gray-400")}>
                       {moveLabel}
                     </td>
                     <td className="px-4 py-3">
@@ -707,6 +708,9 @@ export function LeaderboardAdminManager() {
   const [pendingAthleteDelete, setPendingAthleteDelete] = useState<PendingAthleteDelete | null>(null);
   const [pendingViewChange, setPendingViewChange] = useState<PendingViewChange | null>(null);
   const [viewChangeSaving, setViewChangeSaving] = useState(false);
+  const pendingViewChangeDialogRef = useModalA11y<HTMLDivElement>(Boolean(pendingViewChange), () => setPendingViewChange(null));
+  const pendingAthleteDeleteDialogRef = useModalA11y<HTMLDivElement>(Boolean(pendingAthleteDelete), () => setPendingAthleteDelete(null));
+  const deleteWeekDialogRef = useModalA11y<HTMLDivElement>(deleteWeekOpen, () => setDeleteWeekOpen(false));
   const [selectedSnapshotKey, setSelectedSnapshotKey] = useState("");
   const [toast, setToast] = useState<{ tone: "success" | "error"; title: string; message: string } | null>(null);
   const toastTimeoutRef = useRef<number | undefined>(undefined);
@@ -1526,7 +1530,14 @@ export function LeaderboardAdminManager() {
 
         {pendingViewChange ? (
           <div className="fixed inset-0 z-[100] grid place-items-center bg-primary-charcoal/45 px-4 backdrop-blur-sm">
-            <div className="w-full max-w-lg rounded-2xl border border-secondary-sand bg-white p-5 shadow-[0_24px_70px_rgb(31,31,31,0.22)] dark:border-zinc-700 dark:bg-zinc-900">
+            <div
+              aria-label="Perubahan belum disimpan"
+              aria-modal="true"
+              className="w-full max-w-lg rounded-2xl border border-secondary-sand bg-white p-5 shadow-[0_24px_70px_rgb(31,31,31,0.22)] dark:border-zinc-700 dark:bg-zinc-900"
+              ref={pendingViewChangeDialogRef}
+              role="dialog"
+              tabIndex={-1}
+            >
               <div className="flex gap-3">
                 <span className="grid size-10 shrink-0 place-items-center rounded-full bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-200">
                   <AlertTriangle className="size-5" />
@@ -1571,7 +1582,14 @@ export function LeaderboardAdminManager() {
 
         {pendingAthleteDelete ? (
           <div className="fixed inset-0 z-[100] grid place-items-center bg-primary-charcoal/45 px-4 backdrop-blur-sm">
-            <div className="w-full max-w-md rounded-2xl border border-secondary-sand bg-white p-5 shadow-[0_24px_70px_rgb(31,31,31,0.22)] dark:border-zinc-700 dark:bg-zinc-900">
+            <div
+              aria-label="Hapus atlet minggu ini"
+              aria-modal="true"
+              className="w-full max-w-md rounded-2xl border border-secondary-sand bg-white p-5 shadow-[0_24px_70px_rgb(31,31,31,0.22)] dark:border-zinc-700 dark:bg-zinc-900"
+              ref={pendingAthleteDeleteDialogRef}
+              role="dialog"
+              tabIndex={-1}
+            >
               <div className="flex gap-3">
                 <span className="grid size-10 shrink-0 place-items-center rounded-full bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-200">
                   <Trash2 className="size-5" />
@@ -1609,7 +1627,14 @@ export function LeaderboardAdminManager() {
 
         {deleteWeekOpen ? (
           <div className="fixed inset-0 z-[100] grid place-items-center bg-primary-charcoal/45 px-4 backdrop-blur-sm">
-            <div className="w-full max-w-lg rounded-2xl border border-secondary-sand bg-white p-5 shadow-[0_24px_70px_rgb(31,31,31,0.22)] dark:border-zinc-700 dark:bg-zinc-900">
+            <div
+              aria-label="Hapus seluruh data minggu ini"
+              aria-modal="true"
+              className="w-full max-w-lg rounded-2xl border border-secondary-sand bg-white p-5 shadow-[0_24px_70px_rgb(31,31,31,0.22)] dark:border-zinc-700 dark:bg-zinc-900"
+              ref={deleteWeekDialogRef}
+              role="dialog"
+              tabIndex={-1}
+            >
               <div className="flex gap-3">
                 <span className="grid size-10 shrink-0 place-items-center rounded-full bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-200">
                   <AlertTriangle className="size-5" />

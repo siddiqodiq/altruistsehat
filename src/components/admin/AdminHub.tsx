@@ -43,7 +43,7 @@ export function AdminHub() {
   }
 
   return (
-    <main className="min-h-screen bg-primary-beige text-primary-charcoal transition-colors dark:bg-[#121212] dark:text-gray-100">
+    <main className="min-h-screen bg-primary-beige text-primary-charcoal transition-colors dark:bg-[#121212] dark:text-gray-100" id="main-content">
       <Navbar />
       {activeTab === "leaderboard" ? (
         <>

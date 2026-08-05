@@ -42,6 +42,7 @@ import { displayWeekLabel, STORY_FORMAT } from "@/lib/leaderboard/dashboard-stat
 import { defaultExportPhotoAdjustment, type ExportAthleteSelection, type ExportAthleteSelectionOption } from "@/lib/leaderboard/export-client";
 import type { LeaderboardWeekSnapshot } from "@/lib/leaderboard/week-snapshots";
 import { cn } from "@/lib/utils";
+import { useModalA11y } from "@/hooks/useModalA11y";
 
 export function buttonClassName(className?: string) {
   return cn(
@@ -170,7 +171,7 @@ export function CategorySwitch({
 
 function movementBadge(movement?: AthleteMovement) {
   if (!movement || !movement.fromRank) {
-    return <span className="text-primary-charcoal/40 dark:text-gray-500">-</span>;
+    return <span className="text-primary-charcoal/65 dark:text-gray-400">-</span>;
   }
 
   if (movement.delta > 0) {
@@ -247,7 +248,7 @@ function Sparkline({ values }: { values: number[] }) {
   const padding = 4;
 
   if (values.length < 2) {
-    return <span className="text-xs font-bold text-primary-charcoal/35 dark:text-gray-500">Belum cukup data</span>;
+    return <span className="text-xs font-bold text-primary-charcoal/65 dark:text-gray-400">Belum cukup data</span>;
   }
 
   const min = Math.min(...values);
@@ -1302,6 +1303,7 @@ export function ExportPreviewModal({
   open: boolean;
   spec: LeaderboardSpec;
 }) {
+  const dialogRef = useModalA11y<HTMLElement>(open, onClose);
   const previewScale = 0.28;
   const layoutMode = exportLayoutModeForPreview(spec);
   const adjustableAthletes = useMemo(() => visibleExportPhotoAthletes(spec), [spec]);
@@ -1466,7 +1468,9 @@ export function ExportPreviewModal({
         aria-label="Preview export leaderboard"
         aria-modal="true"
         className="max-h-full w-full max-w-4xl overflow-auto rounded-2xl border border-secondary-sand/50 bg-primary-beige p-5 shadow-2xl dark:border-zinc-700 dark:bg-[#121212]"
+        ref={dialogRef}
         role="dialog"
+        tabIndex={-1}
       >
         <div className="mb-4 flex items-center justify-between gap-4">
           <div>

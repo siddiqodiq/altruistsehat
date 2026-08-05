@@ -72,6 +72,7 @@ import {
 } from "@/lib/leaderboard/photo-adjustments";
 import type { AthletePodiumPhotoAdjustments, ExportLayoutMode, ExportPhotoAdjustment } from "@/lib/leaderboard/types";
 import { cn } from "@/lib/utils";
+import { useModalA11y } from "@/hooks/useModalA11y";
 
 interface AthleteFormState {
   id?: string;
@@ -370,11 +371,11 @@ function AthleteDetailDrawer({
 
       <div className="min-w-0">
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <span className="text-xs font-black uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">Photo coverage</span>
+          <span className="text-xs font-black uppercase tracking-[0.08em] text-zinc-600 dark:text-zinc-300">Photo coverage</span>
           <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-zinc-600 ring-1 ring-zinc-200 dark:bg-zinc-950 dark:text-zinc-300 dark:ring-zinc-800">
             {coverage.statusLabel}
           </span>
-          <span className="text-[11px] font-bold text-zinc-500 dark:text-zinc-400">Custom / Default / Empty</span>
+          <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-300">Custom / Default / Empty</span>
         </div>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
           {PHOTO_SLOT_DEFINITIONS.map((slot) => {
@@ -436,23 +437,27 @@ function ImportAthleteModal({
   onImport: () => void;
   rows: AthleteImportRow[];
 }) {
+  const dialogRef = useModalA11y<HTMLElement>(true, onClose);
+
   return (
     <div className="fixed inset-0 z-[90] grid place-items-center bg-primary-charcoal/50 px-5 py-8 backdrop-blur-sm">
       <section
         aria-label="Import CSV"
         aria-modal="true"
         className="max-h-full w-full max-w-2xl overflow-hidden rounded-[8px] border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
+        ref={dialogRef}
         role="dialog"
+        tabIndex={-1}
       >
         <div className="flex items-start justify-between gap-4 border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
           <div>
             <h2 className="text-xl font-black text-zinc-950 dark:text-zinc-50">Import CSV</h2>
-            <p className="mt-1 text-sm font-medium text-zinc-500 dark:text-zinc-400">Bulk create athletes by name. Photos stay empty.</p>
+            <p className="mt-1 text-sm font-medium text-zinc-600 dark:text-zinc-300">Bulk create athletes by name. Photos stay empty.</p>
           </div>
           <button
+            aria-label="Close import"
             className="grid size-9 cursor-pointer place-items-center rounded-[8px] border border-zinc-200 text-zinc-600 transition hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
             onClick={onClose}
-            title="Close import"
             type="button"
           >
             <X size={17} />
@@ -886,6 +891,7 @@ function AthleteFormModal({
 }) {
   const profilePreviewUrl = form.profilePreviewUrl || form.profilePhotoUrl;
   const podiumPreviewUrl = form.podiumPreviewUrl || form.podiumPhotoUrl;
+  const dialogRef = useModalA11y<HTMLElement>(true, onClose);
 
   return (
     <div className="fixed inset-0 z-[80] grid place-items-center bg-primary-charcoal/50 px-4 py-8 backdrop-blur-sm">
@@ -893,17 +899,19 @@ function AthleteFormModal({
         aria-label={form.id ? "Update athlete" : "Create athlete"}
         aria-modal="true"
         className="max-h-full w-full max-w-3xl overflow-hidden rounded-[8px] border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
+        ref={dialogRef}
         role="dialog"
+        tabIndex={-1}
       >
         <div className="flex items-start justify-between gap-4 border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
           <div>
             <h2 className="text-xl font-black text-zinc-950 dark:text-zinc-50">{form.id ? "Update Athlete" : "Create Athlete"}</h2>
-            <p className="mt-1 text-sm font-medium text-zinc-500 dark:text-zinc-400">Crop images first, then save the athlete record.</p>
+            <p className="mt-1 text-sm font-medium text-zinc-600 dark:text-zinc-300">Crop images first, then save the athlete record.</p>
           </div>
           <button
+            aria-label="Close athlete form"
             className="grid size-9 cursor-pointer place-items-center rounded-[8px] border border-zinc-200 text-zinc-600 transition hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
             onClick={onClose}
-            title="Close athlete form"
             type="button"
           >
             <X size={17} />
@@ -1032,25 +1040,29 @@ function CropImageModal({
     );
   }
 
+  const dialogRef = useModalA11y<HTMLElement>(true, onClose);
+
   return (
     <div className="fixed inset-0 z-[100] grid place-items-center bg-primary-charcoal/60 px-4 py-8 backdrop-blur-sm">
       <section
         aria-label={`Crop ${preset.label}`}
         aria-modal="true"
         className="max-h-full w-full max-w-3xl overflow-hidden rounded-[8px] border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
+        ref={dialogRef}
         role="dialog"
+        tabIndex={-1}
       >
         <div className="flex items-start justify-between gap-4 border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
           <div>
             <h2 className="text-xl font-black text-zinc-950 dark:text-zinc-50">Crop {preset.label}</h2>
-            <p className="mt-1 text-sm font-medium text-zinc-500 dark:text-zinc-400">
+            <p className="mt-1 text-sm font-medium text-zinc-600 dark:text-zinc-300">
               Output {preset.outputWidth}x{preset.outputHeight} WebP
             </p>
           </div>
           <button
+            aria-label="Close crop"
             className="grid size-9 cursor-pointer place-items-center rounded-[8px] border border-zinc-200 text-zinc-600 transition hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
             onClick={onClose}
-            title="Close crop"
             type="button"
           >
             <X size={17} />
