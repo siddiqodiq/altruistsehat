@@ -2,10 +2,18 @@ import { test, expect, type Locator, type Page } from "@playwright/test";
 
 const DEV_ADMIN_TOKEN = "admin123";
 
+const TINY_PNG_BASE64 =
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=";
+
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
-async function assertFocusTrapAndEscapeClose(page: Page, dialog: Locator, trigger: Locator) {
+async function assertFocusTrapAndEscapeClose(
+  page: Page,
+  dialog: Locator,
+  trigger: Locator,
+  options: { checkFocusRestore?: boolean } = {},
+) {
   await expect(dialog).toBeVisible();
   await expect(dialog).toHaveAttribute("aria-modal", "true");
 
@@ -24,7 +32,9 @@ async function assertFocusTrapAndEscapeClose(page: Page, dialog: Locator, trigge
 
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
-  await expect(trigger).toBeFocused();
+  if (options.checkFocusRestore ?? true) {
+    await expect(trigger).toBeFocused();
+  }
 }
 
 async function loginAsAdmin(page: Page) {
@@ -89,5 +99,48 @@ test("Delete athlete confirm dialog traps focus and closes on Escape", async ({ 
   await trigger.click();
 
   const dialog = page.getByRole("dialog", { name: "Hapus atlet minggu ini" });
+  await assertFocusTrapAndEscapeClose(page, dialog, trigger);
+});
+
+test("Crop image modal traps focus and closes on Escape", async ({ page }) => {
+  await page.goto("/athletes");
+  await page.getByRole("button", { name: "Create Athlete" }).click();
+
+  const fileInput = page.getByLabel("Choose profile file");
+  await fileInput.setInputFiles({
+    name: "avatar.png",
+    mimeType: "image/png",
+    buffer: Buffer.from(TINY_PNG_BASE64, "base64"),
+  });
+
+  const trigger = page.getByLabel("Choose profile file");
+  const dialog = page.getByRole("dialog", { name: /^Crop/ });
+  // checkFocusRestore skipped: setInputFiles opens the crop modal without a real click on
+  // the hidden file input, so there is no natural "previously focused" element to restore to
+  // here (a real user always clicks the label first, which focuses the input for real).
+  await assertFocusTrapAndEscapeClose(page, dialog, trigger, { checkFocusRestore: false });
+});
+
+test("Unsaved-changes view-switch dialog traps focus and closes on Escape", async ({ page }) => {
+  test.setTimeout(45_000);
+  await page.goto("/admin");
+  await loginAsAdmin(page);
+  await importAthletesWithRetry(page);
+
+  const trigger = page.getByRole("button", { name: "Cycling" });
+  await trigger.click();
+
+  const dialog = page.getByRole("dialog", { name: "Perubahan belum disimpan" });
+  await assertFocusTrapAndEscapeClose(page, dialog, trigger);
+});
+
+test("Delete week confirm dialog traps focus and closes on Escape", async ({ page }) => {
+  await page.goto("/admin");
+  await loginAsAdmin(page);
+
+  const trigger = page.getByRole("button", { name: "Delete Week" });
+  await trigger.click();
+
+  const dialog = page.getByRole("dialog", { name: "Hapus seluruh data minggu ini" });
   await assertFocusTrapAndEscapeClose(page, dialog, trigger);
 });
