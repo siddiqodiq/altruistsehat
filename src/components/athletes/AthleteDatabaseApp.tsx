@@ -59,18 +59,7 @@ import {
 } from "@/lib/athletes/sport-podium-photos";
 import type { AthleteRecord } from "@/lib/athletes/types";
 import { initialsForName } from "@/lib/leaderboard/images";
-import {
-  clampExportPhotoAdjustment,
-  compactCutoutBackdropStyle,
-  compactExportAthleteCountForLayout,
-  compactPhotoForegroundAdjustmentStyle,
-  compactPresetPreviewHeightPx,
-  DEFAULT_EXPORT_PHOTO_ADJUSTMENTS,
-  isCompactExportLayoutMode,
-  STORY_EXPORT_LAYOUT_LABELS,
-  STORY_EXPORT_LAYOUT_MODES,
-} from "@/lib/leaderboard/photo-adjustments";
-import type { AthletePodiumPhotoAdjustments, ExportLayoutMode, ExportPhotoAdjustment } from "@/lib/leaderboard/types";
+import type { AthletePodiumPhotoAdjustments } from "@/lib/leaderboard/types";
 import { cn } from "@/lib/utils";
 import { useModalA11y } from "@/hooks/useModalA11y";
 
@@ -648,213 +637,6 @@ function SportPodiumPhotoSlots({
   );
 }
 
-function layoutPreviewClassName(layoutMode: ExportLayoutMode) {
-  if (layoutMode === "podiumTop10") {
-    return "aspect-[5/8] max-w-[190px]";
-  }
-
-  return "w-full";
-}
-
-function presetPreviewImageStyle(adjustment: ExportPhotoAdjustment): CSSProperties {
-  const x = Math.min(100, Math.max(0, 50 + adjustment.x));
-  const y = Math.min(100, Math.max(0, 50 + adjustment.y));
-
-  return {
-    objectPosition: `${x}% ${y}%`,
-    transform: `scale(${Math.max(1, adjustment.zoom)})`,
-    transformOrigin: "center center",
-  };
-}
-
-function compactPresetPreviewFrameStyle(layoutMode: Exclude<ExportLayoutMode, "podiumTop10">): CSSProperties {
-  return {
-    height: `${compactPresetPreviewHeightPx(layoutMode)}px`,
-  };
-}
-
-function PodiumPresetPreview({
-  adjustment,
-  hasTransparency,
-  layoutMode,
-  previewUrl,
-}: {
-  adjustment: ExportPhotoAdjustment;
-  hasTransparency?: boolean;
-  layoutMode: ExportLayoutMode;
-  previewUrl: string;
-}) {
-  const compactLayoutMode = isCompactExportLayoutMode(layoutMode) ? layoutMode : undefined;
-  const compactRowCount = compactLayoutMode ? compactExportAthleteCountForLayout(compactLayoutMode) : undefined;
-  const foregroundMask = {
-    WebkitMaskImage: "linear-gradient(to right, #000 0%, #000 58%, rgba(0,0,0,0.76) 76%, transparent 100%)",
-    maskImage: "linear-gradient(to right, #000 0%, #000 58%, rgba(0,0,0,0.76) 76%, transparent 100%)",
-  };
-
-  return (
-    <div className="grid place-items-center rounded-[8px] border border-zinc-200 bg-zinc-100 p-3 dark:border-zinc-800 dark:bg-zinc-900">
-      <div
-        className={cn(
-          "relative overflow-hidden rounded-[8px] border border-zinc-300 bg-zinc-950 shadow-[0_18px_42px_rgba(0,0,0,0.18)]",
-          layoutPreviewClassName(layoutMode),
-        )}
-        data-export-layout={layoutMode}
-        data-export-row-count={compactRowCount}
-        data-export-row-height-preview={compactLayoutMode ? compactPresetPreviewHeightPx(compactLayoutMode) : undefined}
-        data-has-transparent-cutout={hasTransparency ? "true" : "false"}
-        style={compactLayoutMode ? compactPresetPreviewFrameStyle(compactLayoutMode) : undefined}
-      >
-        {compactRowCount ? (
-          <>
-            <div className="absolute inset-0" data-layer="compact-medal-backplate" style={compactCutoutBackdropStyle()} />
-            {previewUrl ? (
-              <div className="absolute inset-0" style={foregroundMask}>
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  alt={`${STORY_EXPORT_LAYOUT_LABELS[layoutMode]} preset preview`}
-                  className="h-full w-full object-contain object-center opacity-95 drop-shadow-[0_14px_28px_rgba(0,0,0,0.42)]"
-                  data-fit-strategy="medal-backplate-foreground"
-                  data-image-layer="compact-photo-foreground"
-                  data-image-position="adjustable-foreground"
-                  src={previewUrl}
-                  style={compactPhotoForegroundAdjustmentStyle(adjustment)}
-                />
-              </div>
-            ) : (
-              <div className="grid h-full w-full place-items-center text-xs font-black uppercase tracking-[0.1em] text-white/35">No Photo</div>
-            )}
-            <div
-              className="absolute inset-0 z-10"
-              style={{
-                background:
-                  "linear-gradient(to left, rgba(5,5,5,0.84) 0%, rgba(5,5,5,0.54) 38%, rgba(5,5,5,0.12) 100%)",
-              }}
-            />
-            <div className="absolute right-2 top-2 z-20 rounded-full bg-black/65 px-2 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-white">
-              {compactRowCount} athlete{compactRowCount === 1 ? "" : "s"}
-            </div>
-          </>
-        ) : (
-          <>
-            {previewUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                alt={`${STORY_EXPORT_LAYOUT_LABELS[layoutMode]} preset preview`}
-                className="h-full w-full object-cover object-center opacity-90"
-                src={previewUrl}
-                style={presetPreviewImageStyle(adjustment)}
-              />
-            ) : (
-              <div className="grid h-full w-full place-items-center text-xs font-black uppercase tracking-[0.1em] text-white/35">No Photo</div>
-            )}
-            <div className="absolute inset-x-[18%] top-[15%] h-[18%] rounded-full border border-[#FFC72C]/70" data-guide="face" />
-            <div className="absolute inset-x-[23%] top-[34%] h-[42%] rounded-t-[45%] border border-white/45" data-guide="torso" />
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(0,0,0,0.36),rgba(0,0,0,0)_44%,rgba(0,0,0,0.36))]" />
-            <div className="absolute bottom-2 left-2 rounded-full bg-black/65 px-2 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-white">
-              Face + Torso Guide
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function PodiumPresetsControl({
-  adjustments,
-  hasTransparency,
-  onAdjustmentChange,
-  onResetAll,
-  onResetLayout,
-  previewUrl,
-}: {
-  adjustments: AthletePodiumPhotoAdjustments;
-  hasTransparency?: boolean;
-  onAdjustmentChange: (layoutMode: ExportLayoutMode, adjustment: ExportPhotoAdjustment) => void;
-  onResetAll: () => void;
-  onResetLayout: (layoutMode: ExportLayoutMode) => void;
-  previewUrl: string;
-}) {
-  const [layoutMode, setLayoutMode] = useState<ExportLayoutMode>("podiumTop10");
-  const adjustment = adjustments[layoutMode] ?? DEFAULT_EXPORT_PHOTO_ADJUSTMENTS[layoutMode];
-  const compactZoomMin = 0.8;
-  const zoomMin = isCompactExportLayoutMode(layoutMode) ? compactZoomMin : 1;
-  const displayZoom = Math.max(zoomMin, adjustment.zoom);
-
-  function updateAdjustment(patch: Partial<ExportPhotoAdjustment>) {
-    onAdjustmentChange(layoutMode, clampExportPhotoAdjustment({ ...adjustment, ...patch }));
-  }
-
-  return (
-    <section className="grid gap-4 rounded-[8px] border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-950">
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <h3 className="text-sm font-black text-zinc-900 dark:text-zinc-100">Podium Presets</h3>
-          <p className="mt-1 text-xs font-semibold leading-5 text-zinc-500 dark:text-zinc-400">
-            Default crop for Story export layouts. Export preview can still override temporarily.
-          </p>
-        </div>
-        <button
-          className={buttonClassName("h-9 border border-zinc-200 bg-white px-3 text-xs text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200")}
-          onClick={onResetAll}
-          type="button"
-        >
-          Reset All
-        </button>
-      </div>
-
-      <div className="grid grid-cols-3 gap-2">
-        {STORY_EXPORT_LAYOUT_MODES.map((mode) => (
-          <button
-            aria-pressed={mode === layoutMode}
-            className={cn(
-              "h-10 rounded-[8px] border px-2 text-xs font-black transition",
-              mode === layoutMode
-                ? "border-zinc-950 bg-zinc-950 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-950"
-                : "border-zinc-200 bg-zinc-50 text-zinc-700 hover:bg-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200",
-            )}
-            key={mode}
-            onClick={() => setLayoutMode(mode)}
-            type="button"
-          >
-            {STORY_EXPORT_LAYOUT_LABELS[mode]}
-          </button>
-        ))}
-      </div>
-
-      <PodiumPresetPreview adjustment={adjustment} hasTransparency={hasTransparency} layoutMode={layoutMode} previewUrl={previewUrl} />
-
-      <div className="grid gap-3">
-        <label className="grid gap-1.5 text-xs font-black uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">
-          <span className="flex items-center justify-between">
-            Zoom <span className="font-mono">{displayZoom.toFixed(2)}x</span>
-          </span>
-          <input max="2.2" min={zoomMin} onChange={(event) => updateAdjustment({ zoom: Number(event.currentTarget.value) })} step="0.05" type="range" value={displayZoom} />
-        </label>
-        <label className="grid gap-1.5 text-xs font-black uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">
-          <span className="flex items-center justify-between">
-            Horizontal <span className="font-mono">{Math.round(adjustment.x)}</span>
-          </span>
-          <input max="40" min="-40" onChange={(event) => updateAdjustment({ x: Number(event.currentTarget.value) })} step="1" type="range" value={adjustment.x} />
-        </label>
-        <label className="grid gap-1.5 text-xs font-black uppercase tracking-[0.08em] text-zinc-500 dark:text-zinc-400">
-          <span className="flex items-center justify-between">
-            Vertical <span className="font-mono">{Math.round(adjustment.y)}</span>
-          </span>
-          <input max="40" min="-40" onChange={(event) => updateAdjustment({ y: Number(event.currentTarget.value) })} step="1" type="range" value={adjustment.y} />
-        </label>
-      </div>
-
-      <button
-        className={buttonClassName("h-9 border border-zinc-200 bg-white px-3 text-xs text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200")}
-        onClick={() => onResetLayout(layoutMode)}
-        type="button"
-      >
-        Reset {STORY_EXPORT_LAYOUT_LABELS[layoutMode]}
-      </button>
-    </section>
-  );
-}
 
 function AthleteFormModal({
   form,
@@ -865,9 +647,6 @@ function AthleteFormModal({
   onFileChange,
   onNameChange,
   onPhotoClear,
-  onPodiumAdjustmentChange,
-  onPodiumAdjustmentResetAll,
-  onPodiumAdjustmentResetLayout,
   onSave,
   onSportPodiumClear,
   onSportPodiumFileChange,
@@ -881,9 +660,6 @@ function AthleteFormModal({
   onFileChange: (kind: AthleteImageKind, event: ChangeEvent<HTMLInputElement>) => void;
   onNameChange: (value: string) => void;
   onPhotoClear: (kind: AthleteImageKind) => void;
-  onPodiumAdjustmentChange: (layoutMode: ExportLayoutMode, adjustment: ExportPhotoAdjustment) => void;
-  onPodiumAdjustmentResetAll: () => void;
-  onPodiumAdjustmentResetLayout: (layoutMode: ExportLayoutMode) => void;
   onSave: (event: FormEvent<HTMLFormElement>) => void;
   onSportPodiumClear: (key: SportPodiumPhotoKey) => void;
   onSportPodiumFileChange: (key: SportPodiumPhotoKey, event: ChangeEvent<HTMLInputElement>) => void;
@@ -961,15 +737,6 @@ function AthleteFormModal({
               pendingFiles={form.pendingSportPodiumFiles}
               previewUrls={form.sportPodiumPreviewUrls}
               sportPhotoUrls={form.sportPodiumPhotoUrls}
-            />
-
-            <PodiumPresetsControl
-              adjustments={form.podiumPhotoAdjustments}
-              hasTransparency={form.podiumPreviewHasTransparency}
-              onAdjustmentChange={onPodiumAdjustmentChange}
-              onResetAll={onPodiumAdjustmentResetAll}
-              onResetLayout={onPodiumAdjustmentResetLayout}
-              previewUrl={podiumPreviewUrl}
             />
           </div>
 
@@ -1482,34 +1249,6 @@ export function AthleteDatabaseApp({ embedded = false }: { embedded?: boolean } 
     });
   }
 
-  function handlePodiumAdjustmentChange(layoutMode: ExportLayoutMode, adjustment: ExportPhotoAdjustment) {
-    setForm((current) => ({
-      ...current,
-      podiumPhotoAdjustments: {
-        ...current.podiumPhotoAdjustments,
-        [layoutMode]: clampExportPhotoAdjustment(adjustment),
-      },
-    }));
-  }
-
-  function handlePodiumAdjustmentResetLayout(layoutMode: ExportLayoutMode) {
-    setForm((current) => {
-      const nextAdjustments = { ...current.podiumPhotoAdjustments };
-      delete nextAdjustments[layoutMode];
-      return {
-        ...current,
-        podiumPhotoAdjustments: nextAdjustments,
-      };
-    });
-  }
-
-  function handlePodiumAdjustmentResetAll() {
-    setForm((current) => ({
-      ...current,
-      podiumPhotoAdjustments: {},
-    }));
-  }
-
   async function handleImportFile(event: ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
     if (!file) {
@@ -1594,9 +1333,6 @@ export function AthleteDatabaseApp({ embedded = false }: { embedded?: boolean } 
               onFileChange={(kind, event) => void handleImageSelection(kind, event)}
               onNameChange={(name) => setForm((current) => ({ ...current, name }))}
               onPhotoClear={handleClearPhoto}
-              onPodiumAdjustmentChange={handlePodiumAdjustmentChange}
-              onPodiumAdjustmentResetAll={handlePodiumAdjustmentResetAll}
-              onPodiumAdjustmentResetLayout={handlePodiumAdjustmentResetLayout}
               onSave={(event) => void handleSave(event)}
               onSportPodiumClear={handleClearSportPodiumPhoto}
               onSportPodiumFileChange={(key, event) => void handleSportPodiumImageSelection(key, event)}

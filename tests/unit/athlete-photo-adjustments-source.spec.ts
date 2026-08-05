@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-import { STORY_EXPORT_LAYOUT_MODES } from "../../src/lib/leaderboard/photo-adjustments";
 
 function source(pathname: string) {
   return fs.readFileSync(path.join(process.cwd(), pathname), "utf8");
@@ -85,39 +84,10 @@ test("athlete admin exposes sport-specific podium photo slots without fallback c
   expect(appSource).not.toContain("Fallback");
 });
 
-test("athlete admin exposes persistent podium presets for every story layout", () => {
+test("athlete admin no longer exposes a podium presets editor (position tuning moved to export preview)", () => {
   const appSource = source("src/components/athletes/AthleteDatabaseApp.tsx");
 
-  expect(appSource).toContain("Podium Presets");
-  expect(appSource).toContain("podiumPhotoAdjustments");
-  expect(appSource).toContain("STORY_EXPORT_LAYOUT_MODES");
-  expect(STORY_EXPORT_LAYOUT_MODES).toEqual(["podiumTop10", "top5", "top4", "top3", "top2", "top1"]);
-  expect(appSource).toContain("Reset All");
-});
-
-test("athlete podium preset previews reflect compact export row height differences", () => {
-  const appSource = source("src/components/athletes/AthleteDatabaseApp.tsx");
-
-  expect(appSource).toContain("compactPresetPreviewHeightPx");
-  expect(appSource).toContain("compactExportAthleteCountForLayout");
-  expect(appSource).toContain("compactPhotoForegroundAdjustmentStyle");
-  expect(appSource).toContain("compactCutoutBackdropStyle");
-  expect(appSource).toContain("medal-backplate-foreground");
-  expect(appSource).toContain("data-fit-strategy");
-  expect(appSource).toContain('data-image-layer="compact-photo-foreground"');
-  expect(appSource).toContain("podiumPreviewHasTransparency");
-  expect(appSource).toContain("data-export-row-height-preview");
-  expect(appSource).toContain("compactZoomMin");
-  expect(appSource).toContain("isCompactExportLayoutMode(layoutMode) ? compactZoomMin : 1");
-  expect(appSource).not.toContain("blur-xl");
-  expect(appSource).not.toContain("compactPhotoBackgroundAdjustmentStyle");
-  expect(appSource).not.toContain('data-fit-strategy="dual-layer-background-fill"');
-  expect(appSource).not.toContain('data-image-layer="compact-photo-background"');
-  expect(appSource).not.toContain('data-image-layer="portrait-safe-foreground"');
-  expect(appSource).not.toContain('data-crop="portrait-safe-foreground"');
-  expect(appSource).not.toContain("left-0 z-[1]");
-  expect(appSource).not.toContain("w-[56%]");
-  expect(appSource).not.toContain("w-[70%]");
-  expect(appSource).not.toContain("COMPACT_PRESET_PREVIEW_HEIGHTS");
-  expect(appSource).not.toContain('layoutMode === "podiumTop10" ? "aspect-[5/8] max-w-[190px]" : "aspect-[16/7] w-full"');
+  expect(appSource).not.toContain("Podium Presets");
+  expect(appSource).not.toContain("PodiumPresetsControl");
+  expect(appSource).not.toContain("PodiumPresetPreview");
 });

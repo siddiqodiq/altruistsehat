@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode, type WheelEvent } from "react";
+import { useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode, type WheelEvent } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
 import {
@@ -15,6 +15,7 @@ import {
   Search,
   TrendingDown,
   TrendingUp,
+  Upload,
   Users,
   Waves,
   X,
@@ -25,7 +26,12 @@ import { initialsForName } from "@/lib/leaderboard/images";
 import { buildBumpChartData, leaderboardAthleteKey, type BumpChartData } from "@/lib/leaderboard/bump-chart";
 import { LEADERBOARD_CATEGORIES, type LeaderboardCategoryId } from "@/lib/leaderboard/categories";
 import { formatMetricValue } from "@/lib/leaderboard/metrics";
-import { isCompactExportLayoutMode, resolveAthletePhotoAdjustment } from "@/lib/leaderboard/photo-adjustments";
+import {
+  clampExportPhotoAdjustment,
+  isCompactExportLayoutMode,
+  resolveAthletePhotoAdjustment,
+  STORY_EXPORT_LAYOUT_MODES,
+} from "@/lib/leaderboard/photo-adjustments";
 import { buildLeaderboardRows } from "@/lib/leaderboard/ranking";
 import type { AthleteMovement, LeaderboardStory } from "@/lib/leaderboard/story";
 import {
@@ -1319,6 +1325,7 @@ export function ExportPreviewModal({
   const controlsDisabled = exporting || refreshingExportPreview;
   const dragStateRef = useRef<ExportPhotoEditorDragState | null>(null);
   const [draggingPhotoAthleteId, setDraggingPhotoAthleteId] = useState("");
+  const [restoreError, setRestoreError] = useState("");
   const activeAthleteSelector = selectedAdjustAthlete ? cssAttributeValue(selectedAdjustAthlete.id) : "";
   const previewEditorStyles = `
     [data-export-preview-stage] [data-export-photo-adjust-target="true"] {
@@ -1351,6 +1358,40 @@ export function ExportPreviewModal({
       ...selectedAdjustment,
       ...patch,
     });
+  }
+
+  function handleBackupPositions() {
+    const blob = new Blob([JSON.stringify(exportPhotoAdjustments, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.download = `leaderboard-positions-${new Date().toISOString().slice(0, 10)}.json`;
+    link.href = url;
+    link.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function handleRestorePositions(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file) {
+      return;
+    }
+
+    try {
+      const restored = JSON.parse(await file.text()) as Record<string, Record<string, Partial<ExportPhotoAdjustment>>>;
+      for (const mode of STORY_EXPORT_LAYOUT_MODES) {
+        const athleteAdjustments = restored[mode];
+        if (!athleteAdjustments) {
+          continue;
+        }
+        for (const [athleteId, adjustment] of Object.entries(athleteAdjustments)) {
+          onExportPhotoAdjustmentChange(mode, athleteId, clampExportPhotoAdjustment(adjustment));
+        }
+      }
+      setRestoreError("");
+    } catch {
+      setRestoreError("File konfigurasi tidak valid.");
+    }
   }
 
   function adjustmentForEditableAthlete(athleteId: string, targetLayoutMode: ExportLayoutMode) {
@@ -1479,6 +1520,23 @@ export function ExportPreviewModal({
           </div>
           <div className="flex items-center gap-2">
             <button
+              aria-label="Backup posisi foto"
+              className="grid size-10 place-items-center rounded-full border border-secondary-sand bg-white text-primary-charcoal transition hover:bg-secondary-sand/30 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100"
+              onClick={handleBackupPositions}
+              title="Backup posisi foto (JSON)"
+              type="button"
+            >
+              <Download className="size-5" />
+            </button>
+            <label
+              aria-label="Restore posisi foto"
+              className="grid size-10 cursor-pointer place-items-center rounded-full border border-secondary-sand bg-white text-primary-charcoal transition hover:bg-secondary-sand/30 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100"
+              title="Restore posisi foto dari JSON"
+            >
+              <Upload className="size-5" />
+              <input accept="application/json" className="sr-only" onChange={(event) => void handleRestorePositions(event)} type="file" />
+            </label>
+            <button
               aria-label="Refresh export"
               className="grid size-10 place-items-center rounded-full border border-secondary-sand bg-white text-primary-charcoal transition hover:bg-secondary-sand/30 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100"
               disabled={controlsDisabled}
@@ -1498,6 +1556,7 @@ export function ExportPreviewModal({
             </button>
           </div>
         </div>
+        {restoreError ? <p className="mb-3 text-sm font-bold text-red-600 dark:text-red-300">{restoreError}</p> : null}
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_220px]">
           <div
             className="grid place-items-center overflow-auto rounded-xl bg-primary-charcoal p-4"
@@ -1613,9 +1672,20 @@ export function ExportPreviewModal({
                     data-testid="export-photo-direct-editor"
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <div className="font-mono text-xs font-black text-primary-charcoal/60 dark:text-gray-400">
-                        {displayZoom.toFixed(2)}x
-                      </div>
+                      <label className="flex items-center gap-1.5 font-mono text-xs font-black text-primary-charcoal/60 dark:text-gray-400">
+                        <input
+                          aria-label="Zoom value"
+                          className="w-14 rounded-lg border border-secondary-sand bg-white px-1.5 py-1 text-right font-mono text-xs font-black text-primary-charcoal disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100"
+                          disabled={controlsDisabled || !selectedAdjustAthlete}
+                          max="2.2"
+                          min={zoomMin}
+                          onChange={(event) => updateSelectedAdjustment({ zoom: clampPhotoAdjustmentZoom(Number(event.currentTarget.value), zoomMin) })}
+                          step="0.05"
+                          type="number"
+                          value={displayZoom.toFixed(2)}
+                        />
+                        x
+                      </label>
                       <div className="flex items-center gap-1.5">
                         <button
                           aria-label="Zoom out selected photo"
@@ -1638,8 +1708,34 @@ export function ExportPreviewModal({
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-1.5 font-mono text-[11px] font-black text-primary-charcoal/45 dark:text-gray-500">
-                      <span className="rounded-lg bg-primary-beige/80 px-2 py-1 dark:bg-zinc-900">X {Math.round(selectedAdjustment.x)}</span>
-                      <span className="rounded-lg bg-primary-beige/80 px-2 py-1 dark:bg-zinc-900">Y {Math.round(selectedAdjustment.y)}</span>
+                      <label className="flex items-center gap-1 rounded-lg bg-primary-beige/80 px-2 py-1 dark:bg-zinc-900">
+                        X
+                        <input
+                          aria-label="Horizontal position"
+                          className="w-full min-w-0 bg-transparent text-right font-mono text-[11px] font-black text-primary-charcoal disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-100"
+                          disabled={controlsDisabled || !selectedAdjustAthlete}
+                          max="40"
+                          min="-40"
+                          onChange={(event) => updateSelectedAdjustment({ x: clampPhotoAdjustmentCoordinate(Number(event.currentTarget.value)) })}
+                          step="1"
+                          type="number"
+                          value={Math.round(selectedAdjustment.x)}
+                        />
+                      </label>
+                      <label className="flex items-center gap-1 rounded-lg bg-primary-beige/80 px-2 py-1 dark:bg-zinc-900">
+                        Y
+                        <input
+                          aria-label="Vertical position"
+                          className="w-full min-w-0 bg-transparent text-right font-mono text-[11px] font-black text-primary-charcoal disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-100"
+                          disabled={controlsDisabled || !selectedAdjustAthlete}
+                          max="40"
+                          min="-40"
+                          onChange={(event) => updateSelectedAdjustment({ y: clampPhotoAdjustmentCoordinate(Number(event.currentTarget.value)) })}
+                          step="1"
+                          type="number"
+                          value={Math.round(selectedAdjustment.y)}
+                        />
+                      </label>
                     </div>
                   </div>
                   <button
