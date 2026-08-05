@@ -27,14 +27,14 @@ export default function CTA() {
             Bergabunglah dengan ribuan orang lainnya yang telah memulai perjalanan menuju hidup yang lebih bermakna dan sehat.
           </p>
           <div className="flex justify-center">
-            <div className="bg-primary-beige dark:bg-[#2A2A2A] text-primary-brown dark:text-white pl-10 pr-8 py-4 rounded-full font-semibold text-lg shadow-[0_0_40px_rgb(245,241,235,0.2)] dark:shadow-[0_0_40px_rgb(255,255,255,0.05)] flex items-center gap-5 transition-all">
+            <div className="bg-primary-beige dark:bg-[#2A2A2A] text-primary-brown dark:text-white pl-6 pr-5 py-3 sm:pl-10 sm:pr-8 sm:py-4 rounded-full font-semibold text-base sm:text-lg shadow-[0_0_40px_rgb(245,241,235,0.2)] dark:shadow-[0_0_40px_rgb(255,255,255,0.05)] flex items-center gap-3 sm:gap-5 transition-all">
               <span>Join Komunitas</span>
-              <div className="flex items-center gap-3 border-l border-primary-brown/20 dark:border-white/20 pl-5">
+              <div className="flex items-center gap-2 sm:gap-3 border-l border-primary-brown/20 dark:border-white/20 pl-4 sm:pl-5">
                 <a href="https://www.instagram.com/altruistsehat/" target="_blank" rel="noopener noreferrer" className="hover:text-primary-brown/70 dark:hover:text-gray-300 transition-colors hover:scale-110 transform">
-                  <Instagram className="w-6 h-6" />
+                  <Instagram className="w-5 h-5 sm:w-6 sm:h-6" />
                 </a>
                 <a href="https://strava.app.link/loGKYOA4U1b" target="_blank" rel="noopener noreferrer" className="hover:text-primary-brown/70 dark:hover:text-gray-300 transition-colors hover:scale-110 transform">
-                  <Strava className="w-6 h-6" />
+                  <Strava className="w-5 h-5 sm:w-6 sm:h-6" />
                 </a>
               </div>
             </div>

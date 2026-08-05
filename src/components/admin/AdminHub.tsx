@@ -50,8 +50,9 @@ export function AdminHub() {
           <div className="fixed left-4 right-4 top-20 z-50 flex justify-center rounded-full border border-secondary-sand/70 bg-white/88 p-1 shadow-[0_16px_42px_rgb(90,46,23,0.12)] backdrop-blur dark:border-zinc-800 dark:bg-zinc-900/88 md:left-auto md:top-24">
             {tabs.map((tab) => (
               <button
+                aria-label={tab.label}
                 className={cn(
-                  "inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-bold transition",
+                  "inline-flex h-10 items-center gap-1.5 rounded-full px-3 text-sm font-bold transition sm:gap-2 sm:px-4",
                   activeTab === tab.id
                     ? "bg-primary-brown text-white"
                     : "text-primary-charcoal/65 hover:bg-secondary-sand/35 dark:text-gray-300 dark:hover:bg-zinc-800",
@@ -61,7 +62,7 @@ export function AdminHub() {
                 type="button"
               >
                 {tab.icon}
-                {tab.label}
+                <span className="hidden sm:inline">{tab.label}</span>
               </button>
             ))}
           </div>
@@ -84,8 +85,9 @@ export function AdminHub() {
             <div className="flex rounded-full border border-secondary-sand/70 bg-white/75 p-1 dark:border-zinc-800 dark:bg-zinc-900">
                 {tabs.map((tab) => (
                   <button
+                    aria-label={tab.label}
                     className={cn(
-                      "inline-flex h-10 items-center gap-2 rounded-full px-4 text-sm font-bold transition",
+                      "inline-flex h-10 items-center gap-1.5 rounded-full px-3 text-sm font-bold transition sm:gap-2 sm:px-4",
                       activeTab === tab.id
                         ? "bg-primary-brown text-white"
                         : "text-primary-charcoal/65 hover:bg-secondary-sand/35 dark:text-gray-300 dark:hover:bg-zinc-800",
@@ -95,7 +97,7 @@ export function AdminHub() {
                     type="button"
                   >
                     {tab.icon}
-                    {tab.label}
+                    <span className="hidden sm:inline">{tab.label}</span>
                   </button>
                 ))}
               </div>

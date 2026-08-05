@@ -591,8 +591,8 @@ function AdminLeaderboardTable({
             </colgroup>
             <thead>
               <tr className="border-b border-secondary-sand/50 bg-white text-xs font-bold uppercase tracking-[0.08em] text-primary-charcoal/50 dark:border-zinc-800 dark:bg-zinc-900 dark:text-gray-500">
-                <th className="whitespace-nowrap px-4 py-3 text-left">Rank</th>
-                <th className="whitespace-nowrap px-4 py-3 text-left">Athlete</th>
+                <th className="sticky left-0 z-30 whitespace-nowrap bg-inherit px-4 py-3 text-left">Rank</th>
+                <th className="sticky left-[80px] z-30 whitespace-nowrap bg-inherit px-4 py-3 text-left">Athlete</th>
                 <th className="whitespace-nowrap px-4 py-3 text-right">Result</th>
                 <th className="whitespace-nowrap px-4 py-3 text-center">Move</th>
                 <th className="whitespace-nowrap px-4 py-3 text-right">Actions</th>
@@ -608,10 +608,10 @@ function AdminLeaderboardTable({
                     data-leaderboard-athlete-key={athleteKey(athlete)}
                     key={athlete.id}
                   >
-                    <td className="whitespace-nowrap px-4 py-3 font-poppins text-lg font-bold text-primary-brown dark:text-secondary-sand">
+                    <td className="sticky left-0 z-20 whitespace-nowrap bg-inherit px-4 py-3 font-poppins text-lg font-bold text-primary-brown dark:text-secondary-sand">
                       {athlete.rank ? `#${athlete.rank}` : "—"}
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="sticky left-[80px] z-20 bg-inherit px-4 py-3">
                       <input
                         className={inputStateClass(athlete.id, "name", "h-10")}
                         disabled={!canEdit}
@@ -1454,7 +1454,8 @@ export function LeaderboardAdminManager() {
     : "";
 
   return (
-    <div className="bg-primary-beige/55 pt-24 dark:bg-[#121212] md:pt-28">
+    // pt-[136px]/md:pt-[152px] clear AdminHub.tsx's fixed tab pill (top-20/24 + h-10 button + p-1 wrapper = 128px/144px) with an 8px buffer.
+    <div className="bg-primary-beige/55 pt-[136px] dark:bg-[#121212] md:pt-[152px]">
       <section className="mx-auto grid min-w-0 w-full max-w-[1600px] gap-6 px-4 pb-20 sm:px-6 lg:px-8">
         <AdminContextBar
           adminLoginError={adminLoginError}
