@@ -158,14 +158,14 @@ const PHOTO_SLOT_DEFINITIONS: PhotoSlotDefinition[] = [
 
 function inputClassName(extra?: string) {
   return cn(
-    "min-h-11 w-full rounded-[8px] border border-zinc-200 bg-white px-3 text-sm font-medium text-zinc-950 outline-none transition focus:border-zinc-950 focus:ring-2 focus:ring-zinc-950/10 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-50 dark:focus:border-zinc-200",
+    "min-h-11 w-full rounded-xl border border-secondary-sand/70 bg-white px-3 text-sm font-medium text-primary-charcoal outline-none transition focus:border-primary-charcoal focus:ring-2 focus:ring-primary-brown/10 dark:border-zinc-700 dark:bg-zinc-950 dark:text-white dark:focus:border-zinc-200",
     extra,
   );
 }
 
 function buttonClassName(extra?: string) {
   return cn(
-    "inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-[8px] text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60",
+    "inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60",
     extra,
   );
 }
@@ -209,7 +209,7 @@ function formFromAthlete(athlete: AthleteRecord): AthleteFormState {
 
 function ProfilePreview({ athlete }: { athlete: AthleteRecord }) {
   return (
-    <div className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-full bg-zinc-950 text-sm font-black text-white dark:bg-zinc-100 dark:text-zinc-950">
+    <div className="grid size-12 shrink-0 place-items-center overflow-hidden rounded-full bg-primary-brown text-sm font-black text-white dark:bg-secondary-sand/15 dark:text-white">
       {athlete.profilePhotoUrl ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img alt={`${athlete.name} profile`} className="h-full w-full object-cover" src={athlete.profilePhotoUrl} />
@@ -290,10 +290,10 @@ function PhotoSlotIcon({
     <span
       aria-label={label}
       className={cn(
-        "relative grid size-9 shrink-0 place-items-center rounded-[8px] border text-zinc-400 transition dark:text-zinc-500",
-        status === "custom" && "border-zinc-950 bg-zinc-950 text-white dark:border-zinc-100 dark:bg-zinc-100 dark:text-zinc-950",
+        "relative grid size-9 shrink-0 place-items-center rounded-xl border text-primary-charcoal/40 transition dark:text-gray-500",
+        status === "custom" && "border-primary-charcoal bg-primary-brown text-white dark:border-gray-700 dark:bg-secondary-sand/15 dark:text-white",
         status === "default" && "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-200",
-        status === "empty" && "border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-900",
+        status === "empty" && "border-secondary-sand/70 bg-secondary-sand/20 dark:border-zinc-800 dark:bg-zinc-900",
       )}
       title={label}
     >
@@ -301,7 +301,7 @@ function PhotoSlotIcon({
       {status !== "empty" ? (
         <span
           className={cn(
-            "absolute -right-1 -top-1 size-2.5 rounded-full border-2 border-white dark:border-zinc-950",
+            "absolute -right-1 -top-1 size-2.5 rounded-full border-2 border-white dark:border-primary-charcoal",
             status === "custom" ? "bg-primary-green" : "bg-amber-400",
           )}
         />
@@ -323,7 +323,7 @@ function AthletePhotoSummary({ athlete }: { athlete: AthleteRecord }) {
       <span
         className={cn(
           "w-fit rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.04em]",
-          coverage.customCount ? "bg-primary-green/12 text-primary-green" : "bg-zinc-100 text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400",
+          coverage.customCount ? "bg-primary-green/12 text-primary-green" : "bg-secondary-sand/30 text-primary-charcoal/55 dark:bg-zinc-900 dark:text-gray-400",
         )}
       >
         {coverage.statusLabel}
@@ -343,11 +343,11 @@ function AthleteDetailDrawer({
 
   return (
     <div
-      className="grid gap-4 border-t border-zinc-100 bg-zinc-50/70 p-4 md:grid-cols-[120px_minmax(0,1fr)_auto] dark:border-zinc-800 dark:bg-zinc-900/35"
+      className="grid gap-4 border-t border-secondary-sand/40 bg-secondary-sand/15 p-4 md:grid-cols-[120px_minmax(0,1fr)_auto] dark:border-zinc-800 dark:bg-zinc-900/35"
       data-testid="athlete-detail-drawer"
     >
       <div className="grid gap-2">
-        <div className="grid h-36 w-full max-w-28 place-items-center overflow-hidden rounded-[8px] border border-zinc-200 bg-white text-xs font-black text-zinc-400 dark:border-zinc-700 dark:bg-zinc-950">
+        <div className="grid h-36 w-full max-w-28 place-items-center overflow-hidden rounded-xl border border-secondary-sand/70 bg-white text-xs font-black text-primary-charcoal/40 dark:border-zinc-700 dark:bg-zinc-950">
           {athlete.podiumPhotoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img alt={`${athlete.name} main podium preview`} className="h-full w-full object-cover object-center" src={athlete.podiumPhotoUrl} />
@@ -355,16 +355,16 @@ function AthleteDetailDrawer({
             <ImageIcon size={24} />
           )}
         </div>
-        <span className="text-xs font-black text-zinc-600 dark:text-zinc-300">Main podium</span>
+        <span className="text-xs font-black text-primary-charcoal/70 dark:text-gray-300">Main podium</span>
       </div>
 
       <div className="min-w-0">
         <div className="mb-3 flex flex-wrap items-center gap-2">
-          <span className="text-xs font-black uppercase tracking-[0.08em] text-zinc-600 dark:text-zinc-300">Photo coverage</span>
-          <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-zinc-600 ring-1 ring-zinc-200 dark:bg-zinc-950 dark:text-zinc-300 dark:ring-zinc-800">
+          <span className="text-xs font-black uppercase tracking-[0.08em] text-primary-charcoal/70 dark:text-gray-300">Photo coverage</span>
+          <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-black text-primary-charcoal/70 ring-1 ring-secondary-sand/70 dark:bg-zinc-950 dark:text-gray-300 dark:ring-zinc-800">
             {coverage.statusLabel}
           </span>
-          <span className="text-[11px] font-bold text-zinc-600 dark:text-zinc-300">Custom / Default / Empty</span>
+          <span className="text-[11px] font-bold text-primary-charcoal/70 dark:text-gray-300">Custom / Default / Empty</span>
         </div>
         <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
           {PHOTO_SLOT_DEFINITIONS.map((slot) => {
@@ -373,21 +373,21 @@ function AthleteDetailDrawer({
             const Icon = slot.icon;
 
             return (
-              <div className="min-w-0 rounded-[8px] border border-zinc-200 bg-white p-2 dark:border-zinc-800 dark:bg-zinc-950" key={slot.key}>
+              <div className="min-w-0 rounded-xl border border-secondary-sand/70 bg-white p-2 dark:border-zinc-800 dark:bg-zinc-950" key={slot.key}>
                 <div className="mb-2 flex items-center justify-between gap-2">
-                  <span className="truncate text-xs font-black text-zinc-800 dark:text-zinc-100">{slot.label}</span>
+                  <span className="truncate text-xs font-black text-primary-charcoal dark:text-gray-100">{slot.label}</span>
                   <span
                     className={cn(
                       "rounded-full px-2 py-0.5 text-[10px] font-black uppercase tracking-[0.04em]",
                       status === "custom" && "bg-primary-green/12 text-primary-green",
                       status === "default" && "bg-amber-50 text-amber-700 dark:bg-amber-950/30 dark:text-amber-200",
-                      status === "empty" && "bg-zinc-100 text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400",
+                      status === "empty" && "bg-secondary-sand/30 text-primary-charcoal/55 dark:bg-zinc-900 dark:text-gray-400",
                     )}
                   >
                     {statusLabelForSlot(status)}
                   </span>
                 </div>
-                <div className="grid h-20 place-items-center overflow-hidden rounded-[8px] border border-zinc-100 bg-zinc-50 text-zinc-400 dark:border-zinc-800 dark:bg-zinc-900">
+                <div className="grid h-20 place-items-center overflow-hidden rounded-xl border border-secondary-sand/40 bg-secondary-sand/20 text-primary-charcoal/40 dark:border-zinc-800 dark:bg-zinc-900">
                   {previewUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img alt={`${athlete.name} ${slot.label} preview`} className="h-full w-full object-cover object-center" src={previewUrl} />
@@ -402,7 +402,7 @@ function AthleteDetailDrawer({
       </div>
 
       <div className="flex items-start justify-end">
-        <button className={buttonClassName("h-10 bg-zinc-950 px-3 text-white dark:bg-zinc-50 dark:text-zinc-950")} onClick={onManage} type="button">
+        <button className={buttonClassName("h-10 bg-primary-brown px-3 text-white dark:bg-primary-brown dark:text-white")} onClick={onManage} type="button">
           <Edit3 size={15} />
           Manage Photos
         </button>
@@ -433,19 +433,19 @@ function ImportAthleteModal({
       <section
         aria-label="Import CSV"
         aria-modal="true"
-        className="max-h-full w-full max-w-2xl overflow-hidden rounded-[8px] border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
+        className="max-h-full w-full max-w-2xl overflow-hidden rounded-xl border border-secondary-sand/70 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
         ref={dialogRef}
         role="dialog"
         tabIndex={-1}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
+        <div className="flex items-start justify-between gap-4 border-b border-secondary-sand/70 px-5 py-4 dark:border-zinc-800">
           <div>
-            <h2 className="text-xl font-black text-zinc-950 dark:text-zinc-50">Import CSV</h2>
-            <p className="mt-1 text-sm font-medium text-zinc-600 dark:text-zinc-300">Bulk create athletes by name. Photos stay empty.</p>
+            <h2 className="text-xl font-black text-primary-charcoal dark:text-white">Import CSV</h2>
+            <p className="mt-1 text-sm font-medium text-primary-charcoal/70 dark:text-gray-300">Bulk create athletes by name. Photos stay empty.</p>
           </div>
           <button
             aria-label="Close import"
-            className="grid size-9 cursor-pointer place-items-center rounded-[8px] border border-zinc-200 text-zinc-600 transition hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
+            className="grid size-9 cursor-pointer place-items-center rounded-xl border border-secondary-sand/70 text-primary-charcoal/70 transition hover:bg-secondary-sand/20 dark:border-zinc-700 dark:text-gray-300 dark:hover:bg-zinc-900"
             onClick={onClose}
             type="button"
           >
@@ -454,45 +454,45 @@ function ImportAthleteModal({
         </div>
 
         <div className="grid max-h-[70vh] gap-4 overflow-y-auto p-5">
-          <label className="grid min-h-36 cursor-pointer place-items-center rounded-[8px] border border-dashed border-zinc-300 bg-zinc-50 px-4 text-center text-sm font-black text-zinc-700 transition hover:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-200">
+          <label className="grid min-h-36 cursor-pointer place-items-center rounded-xl border border-dashed border-secondary-sand bg-secondary-sand/20 px-4 text-center text-sm font-black text-primary-charcoal/85 transition hover:border-primary-charcoal/40 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-300">
             <FileUp size={24} />
             <span>Drag CSV Here</span>
-            <span className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">or Choose File</span>
+            <span className="text-xs font-semibold text-primary-charcoal/55 dark:text-gray-400">or Choose File</span>
             <input accept=".csv,text/csv" aria-label="Choose CSV file" className="sr-only" onChange={onFileChange} type="file" />
           </label>
 
-          {error ? <div className="rounded-[8px] bg-red-50 px-3 py-2 text-sm font-bold text-red-700 dark:bg-red-950/40 dark:text-red-200">{error}</div> : null}
+          {error ? <div className="rounded-xl bg-red-50 px-3 py-2 text-sm font-bold text-red-700 dark:bg-red-950/40 dark:text-red-200">{error}</div> : null}
 
           {rows.length ? (
             <div className="grid gap-3">
-              <div className="text-sm font-black text-zinc-700 dark:text-zinc-200">{rows.length} athletes detected</div>
-              <div className="max-h-64 overflow-auto rounded-[8px] border border-zinc-200 dark:border-zinc-800">
+              <div className="text-sm font-black text-primary-charcoal/85 dark:text-gray-300">{rows.length} athletes detected</div>
+              <div className="max-h-64 overflow-auto rounded-xl border border-secondary-sand/70 dark:border-zinc-800">
                 <table className="w-full border-collapse text-left text-sm">
-                  <thead className="sticky top-0 bg-zinc-50 text-xs font-black uppercase tracking-[0.05em] text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
+                  <thead className="sticky top-0 bg-secondary-sand/20 text-xs font-black uppercase tracking-[0.05em] text-primary-charcoal/55 dark:bg-zinc-900 dark:text-gray-400">
                     <tr>
                       <th className="px-3 py-2">Name</th>
                     </tr>
                   </thead>
                   <tbody>
                     {rows.slice(0, 100).map((row) => (
-                      <tr className="border-t border-zinc-100 dark:border-zinc-800" key={`${row.rowNumber}-${row.normalizedName}`}>
-                        <td className="px-3 py-2 font-semibold text-zinc-800 dark:text-zinc-200">{row.name}</td>
+                      <tr className="border-t border-secondary-sand/40 dark:border-zinc-800" key={`${row.rowNumber}-${row.normalizedName}`}>
+                        <td className="px-3 py-2 font-semibold text-primary-charcoal dark:text-gray-300">{row.name}</td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-              {rows.length > 100 ? <div className="text-xs font-semibold text-zinc-500 dark:text-zinc-400">Showing first 100 names.</div> : null}
+              {rows.length > 100 ? <div className="text-xs font-semibold text-primary-charcoal/55 dark:text-gray-400">Showing first 100 names.</div> : null}
             </div>
           ) : null}
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-zinc-200 px-5 py-4 dark:border-zinc-800">
-          <button className={buttonClassName("border border-zinc-200 bg-white px-4 text-zinc-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200")} onClick={onClose} type="button">
+        <div className="flex justify-end gap-2 border-t border-secondary-sand/70 px-5 py-4 dark:border-zinc-800">
+          <button className={buttonClassName("border border-secondary-sand/70 bg-white px-4 text-primary-charcoal/85 dark:border-zinc-700 dark:bg-zinc-950 dark:text-gray-300")} onClick={onClose} type="button">
             Cancel
           </button>
           <button
-            className={buttonClassName("bg-zinc-950 px-4 text-white dark:bg-zinc-50 dark:text-zinc-950")}
+            className={buttonClassName("bg-primary-brown px-4 text-white dark:bg-primary-brown dark:text-white")}
             disabled={!rows.length || importing}
             onClick={onImport}
             type="button"
@@ -529,10 +529,10 @@ function PhotoActionCard({
   const isProfile = previewShape === "profile";
 
   return (
-    <div className="grid gap-3 rounded-[8px] border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900/80">
+    <div className="grid gap-3 rounded-xl border border-secondary-sand/70 bg-secondary-sand/20 p-3 dark:border-zinc-800 dark:bg-zinc-900/80">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <div className="text-sm font-black text-zinc-800 dark:text-zinc-100">{title}</div>
+          <div className="text-sm font-black text-primary-charcoal dark:text-gray-100">{title}</div>
         </div>
         {pending ? (
           <span className="rounded-full bg-primary-green/12 px-2 py-1 text-[11px] font-black uppercase tracking-[0.04em] text-primary-green dark:bg-secondary-teal/15 dark:text-secondary-teal">
@@ -544,8 +544,8 @@ function PhotoActionCard({
       <div className="flex items-center gap-3">
         <div
           className={cn(
-            "grid shrink-0 place-items-center overflow-hidden border border-zinc-200 bg-white text-xs font-black text-zinc-400 dark:border-zinc-700 dark:bg-zinc-950",
-            isProfile ? "size-20 rounded-full" : "h-28 w-[70px] rounded-[8px]",
+            "grid shrink-0 place-items-center overflow-hidden border border-secondary-sand/70 bg-white text-xs font-black text-primary-charcoal/40 dark:border-zinc-700 dark:bg-zinc-950",
+            isProfile ? "size-20 rounded-full" : "h-28 w-[70px] rounded-xl",
           )}
         >
           {previewUrl ? (
@@ -555,7 +555,7 @@ function PhotoActionCard({
             <ImagePlus size={20} />
           )}
         </div>
-        <label className={buttonClassName("h-10 flex-1 border border-dashed border-zinc-300 bg-white px-3 text-zinc-700 hover:border-zinc-500 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200")}>
+        <label className={buttonClassName("h-10 flex-1 border border-dashed border-secondary-sand bg-white px-3 text-primary-charcoal/85 hover:border-primary-charcoal/40 dark:border-zinc-700 dark:bg-zinc-950 dark:text-gray-300")}>
           <Crop size={16} />
           Choose & Crop
           <input
@@ -568,7 +568,7 @@ function PhotoActionCard({
         </label>
         <button
           aria-label={`${title} download`}
-          className="grid size-10 cursor-pointer place-items-center rounded-[8px] border border-zinc-200 bg-white text-zinc-700 transition hover:bg-zinc-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900"
+          className="grid size-10 cursor-pointer place-items-center rounded-xl border border-secondary-sand/70 bg-white text-primary-charcoal/85 transition hover:bg-secondary-sand/20 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-950 dark:text-gray-300 dark:hover:bg-zinc-900"
           disabled={!canDownload}
           onClick={onDownload}
           title={`Download ${title}`}
@@ -578,7 +578,7 @@ function PhotoActionCard({
         </button>
         <button
           aria-label={`${title} delete`}
-          className="grid size-10 cursor-pointer place-items-center rounded-[8px] border border-zinc-200 bg-white text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-950 dark:text-red-300 dark:hover:bg-red-950/30"
+          className="grid size-10 cursor-pointer place-items-center rounded-xl border border-secondary-sand/70 bg-white text-red-600 transition hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-40 dark:border-zinc-700 dark:bg-zinc-950 dark:text-red-300 dark:hover:bg-red-950/30"
           disabled={!canClear}
           onClick={onClear}
           title={`Delete ${title}`}
@@ -609,9 +609,9 @@ function SportPodiumPhotoSlots({
   sportPhotoUrls: SportPodiumPhotoUrls;
 }) {
   return (
-    <section className="grid gap-3 rounded-[8px] border border-zinc-200 bg-zinc-50 p-3 dark:border-zinc-800 dark:bg-zinc-900/80">
+    <section className="grid gap-3 rounded-xl border border-secondary-sand/70 bg-secondary-sand/20 p-3 dark:border-zinc-800 dark:bg-zinc-900/80">
       <div>
-        <h3 className="text-sm font-black text-zinc-900 dark:text-zinc-100">Sport Podium Photos</h3>
+        <h3 className="text-sm font-black text-primary-charcoal dark:text-gray-100">Sport Podium Photos</h3>
       </div>
       <div className="grid gap-3 md:grid-cols-2">
         {SPORT_PODIUM_PHOTO_OPTIONS.map((option) => {
@@ -674,19 +674,19 @@ function AthleteFormModal({
       <section
         aria-label={form.id ? "Update athlete" : "Create athlete"}
         aria-modal="true"
-        className="max-h-full w-full max-w-3xl overflow-hidden rounded-[8px] border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
+        className="max-h-full w-full max-w-3xl overflow-hidden rounded-xl border border-secondary-sand/70 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
         ref={dialogRef}
         role="dialog"
         tabIndex={-1}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
+        <div className="flex items-start justify-between gap-4 border-b border-secondary-sand/70 px-5 py-4 dark:border-zinc-800">
           <div>
-            <h2 className="text-xl font-black text-zinc-950 dark:text-zinc-50">{form.id ? "Update Athlete" : "Create Athlete"}</h2>
-            <p className="mt-1 text-sm font-medium text-zinc-600 dark:text-zinc-300">Crop images first, then save the athlete record.</p>
+            <h2 className="text-xl font-black text-primary-charcoal dark:text-white">{form.id ? "Update Athlete" : "Create Athlete"}</h2>
+            <p className="mt-1 text-sm font-medium text-primary-charcoal/70 dark:text-gray-300">Crop images first, then save the athlete record.</p>
           </div>
           <button
             aria-label="Close athlete form"
-            className="grid size-9 cursor-pointer place-items-center rounded-[8px] border border-zinc-200 text-zinc-600 transition hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
+            className="grid size-9 cursor-pointer place-items-center rounded-xl border border-secondary-sand/70 text-primary-charcoal/70 transition hover:bg-secondary-sand/20 dark:border-zinc-700 dark:text-gray-300 dark:hover:bg-zinc-900"
             onClick={onClose}
             type="button"
           >
@@ -696,13 +696,13 @@ function AthleteFormModal({
 
         <form className="grid max-h-[78vh] overflow-y-auto" onSubmit={onSave}>
           <div className="grid gap-5 p-5">
-            <label className="grid gap-2 text-sm font-semibold text-zinc-700 dark:text-zinc-200">
+            <label className="grid gap-2 text-sm font-semibold text-primary-charcoal/85 dark:text-gray-300">
               Name
               <input className={inputClassName()} onChange={(event) => onNameChange(event.target.value)} placeholder="Utha" value={form.name} />
             </label>
 
-            <div className="rounded-[8px] bg-zinc-50 px-3 py-2 text-xs font-bold uppercase tracking-[0.04em] text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
-              normalized_name: <span className="text-zinc-950 dark:text-zinc-50">{normalizedPreview || "name required"}</span>
+            <div className="rounded-xl bg-secondary-sand/20 px-3 py-2 text-xs font-bold uppercase tracking-[0.04em] text-primary-charcoal/55 dark:bg-zinc-900 dark:text-gray-400">
+              normalized_name: <span className="text-primary-charcoal dark:text-white">{normalizedPreview || "name required"}</span>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
@@ -740,11 +740,11 @@ function AthleteFormModal({
             />
           </div>
 
-          <div className="flex justify-end gap-2 border-t border-zinc-200 px-5 py-4 dark:border-zinc-800">
-            <button className={buttonClassName("border border-zinc-200 bg-white px-4 text-zinc-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200")} onClick={onClose} type="button">
+          <div className="flex justify-end gap-2 border-t border-secondary-sand/70 px-5 py-4 dark:border-zinc-800">
+            <button className={buttonClassName("border border-secondary-sand/70 bg-white px-4 text-primary-charcoal/85 dark:border-zinc-700 dark:bg-zinc-950 dark:text-gray-300")} onClick={onClose} type="button">
               Cancel
             </button>
-            <button className={buttonClassName("bg-zinc-950 px-4 text-white dark:bg-zinc-50 dark:text-zinc-950")} disabled={saving} type="submit">
+            <button className={buttonClassName("bg-primary-brown px-4 text-white dark:bg-primary-brown dark:text-white")} disabled={saving} type="submit">
               <Check size={16} />
               {saving ? "Saving..." : form.id ? "Save Athlete" : "Create Athlete"}
             </button>
@@ -814,21 +814,21 @@ function CropImageModal({
       <section
         aria-label={`Crop ${preset.label}`}
         aria-modal="true"
-        className="max-h-full w-full max-w-3xl overflow-hidden rounded-[8px] border border-zinc-200 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
+        className="max-h-full w-full max-w-3xl overflow-hidden rounded-xl border border-secondary-sand/70 bg-white shadow-2xl dark:border-zinc-800 dark:bg-zinc-950"
         ref={dialogRef}
         role="dialog"
         tabIndex={-1}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
+        <div className="flex items-start justify-between gap-4 border-b border-secondary-sand/70 px-5 py-4 dark:border-zinc-800">
           <div>
-            <h2 className="text-xl font-black text-zinc-950 dark:text-zinc-50">Crop {preset.label}</h2>
-            <p className="mt-1 text-sm font-medium text-zinc-600 dark:text-zinc-300">
+            <h2 className="text-xl font-black text-primary-charcoal dark:text-white">Crop {preset.label}</h2>
+            <p className="mt-1 text-sm font-medium text-primary-charcoal/70 dark:text-gray-300">
               Output {preset.outputWidth}x{preset.outputHeight} WebP
             </p>
           </div>
           <button
             aria-label="Close crop"
-            className="grid size-9 cursor-pointer place-items-center rounded-[8px] border border-zinc-200 text-zinc-600 transition hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-900"
+            className="grid size-9 cursor-pointer place-items-center rounded-xl border border-secondary-sand/70 text-primary-charcoal/70 transition hover:bg-secondary-sand/20 dark:border-zinc-700 dark:text-gray-300 dark:hover:bg-zinc-900"
             onClick={onClose}
             type="button"
           >
@@ -837,7 +837,7 @@ function CropImageModal({
         </div>
 
         <div className="grid max-h-[78vh] gap-5 overflow-y-auto p-5 lg:grid-cols-[minmax(0,1fr)_240px]">
-          <div className="grid place-items-center rounded-[8px] border border-zinc-200 bg-zinc-100 p-4 dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="grid place-items-center rounded-xl border border-secondary-sand/70 bg-secondary-sand/30 p-4 dark:border-zinc-800 dark:bg-zinc-900">
             <div
               className={cn(
                 "w-full max-w-[360px] overflow-hidden border-2 border-white shadow-[0_18px_44px_rgba(0,0,0,0.22)]",
@@ -848,7 +848,7 @@ function CropImageModal({
           </div>
 
           <div className="grid content-start gap-4">
-            <label className="grid gap-2 text-sm font-black text-zinc-700 dark:text-zinc-200">
+            <label className="grid gap-2 text-sm font-black text-primary-charcoal/85 dark:text-gray-300">
               Zoom
               <input
                 max="3"
@@ -859,7 +859,7 @@ function CropImageModal({
                 value={zoom}
               />
             </label>
-            <label className="grid gap-2 text-sm font-black text-zinc-700 dark:text-zinc-200">
+            <label className="grid gap-2 text-sm font-black text-primary-charcoal/85 dark:text-gray-300">
               Position X
               <input
                 max={maxX}
@@ -870,7 +870,7 @@ function CropImageModal({
                 value={frame.x}
               />
             </label>
-            <label className="grid gap-2 text-sm font-black text-zinc-700 dark:text-zinc-200">
+            <label className="grid gap-2 text-sm font-black text-primary-charcoal/85 dark:text-gray-300">
               Position Y
               <input
                 max={maxY}
@@ -884,11 +884,11 @@ function CropImageModal({
           </div>
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-zinc-200 px-5 py-4 dark:border-zinc-800">
-          <button className={buttonClassName("border border-zinc-200 bg-white px-4 text-zinc-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200")} onClick={onClose} type="button">
+        <div className="flex justify-end gap-2 border-t border-secondary-sand/70 px-5 py-4 dark:border-zinc-800">
+          <button className={buttonClassName("border border-secondary-sand/70 bg-white px-4 text-primary-charcoal/85 dark:border-zinc-700 dark:bg-zinc-950 dark:text-gray-300")} onClick={onClose} type="button">
             Cancel
           </button>
-          <button className={buttonClassName("bg-zinc-950 px-4 text-white dark:bg-zinc-50 dark:text-zinc-950")} disabled={processing} onClick={onApply} type="button">
+          <button className={buttonClassName("bg-primary-brown px-4 text-white dark:bg-primary-brown dark:text-white")} disabled={processing} onClick={onApply} type="button">
             <Crop size={16} />
             {processing ? "Cropping..." : "Apply Crop"}
           </button>
@@ -1291,12 +1291,12 @@ export function AthleteDatabaseApp({ embedded = false }: { embedded?: boolean } 
   }
 
   return (
-    <main className={embedded ? "bg-transparent text-zinc-950 dark:text-gray-100" : "min-h-screen bg-[#f3f4f1] px-5 py-6 text-zinc-950"}>
+    <main className={embedded ? "bg-transparent text-primary-charcoal dark:text-gray-100" : "min-h-screen bg-[#f3f4f1] px-5 py-6 text-primary-charcoal"}>
       {toast ? (
         <div
           aria-live="polite"
           className={cn(
-            "fixed bottom-5 left-5 right-5 z-[120] rounded-[8px] border px-4 py-3 text-sm font-black shadow-[0_18px_44px_rgba(0,0,0,0.16)] sm:left-auto sm:max-w-md",
+            "fixed bottom-5 left-5 right-5 z-[120] rounded-xl border px-4 py-3 text-sm font-black shadow-[0_18px_44px_rgba(0,0,0,0.16)] sm:left-auto sm:max-w-md",
             toast.tone === "success"
               ? "border-primary-green/25 bg-primary-green text-white"
               : "border-red-200 bg-red-600 text-white dark:border-red-900",
@@ -1351,13 +1351,13 @@ export function AthleteDatabaseApp({ embedded = false }: { embedded?: boolean } 
       ) : null}
 
       <section className={cn("mx-auto grid w-full min-w-0 max-w-5xl gap-4", embedded ? "" : "min-h-screen content-start")}>
-        <div className="min-w-0 rounded-[8px] border border-zinc-200 bg-white p-5 shadow-[0_18px_44px_rgba(90,46,23,0.06)] dark:border-zinc-800 dark:bg-zinc-950">
+        <div className="min-w-0 rounded-xl border border-secondary-sand/70 bg-white p-5 shadow-[0_18px_44px_rgba(90,46,23,0.06)] dark:border-zinc-800 dark:bg-zinc-950">
           <div className="mb-5 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
             <div className="min-w-0">
               <div className="flex items-center gap-2">
                 {!embedded ? (
                   <Link
-                    className="grid size-9 shrink-0 place-items-center rounded-[8px] border border-zinc-200 text-zinc-600 transition hover:bg-zinc-50"
+                    className="grid size-9 shrink-0 place-items-center rounded-xl border border-secondary-sand/70 text-primary-charcoal/70 transition hover:bg-secondary-sand/20"
                     href="/admin?tab=athletes"
                     title="Back to admin"
                   >
@@ -1365,15 +1365,15 @@ export function AthleteDatabaseApp({ embedded = false }: { embedded?: boolean } 
                   </Link>
                 ) : null}
                 <div>
-                  <h2 className="text-2xl font-black tracking-normal text-zinc-950 dark:text-zinc-50">Athlete Database</h2>
-                  <p className="mt-1 text-sm font-medium text-zinc-500 dark:text-zinc-400">Auto-match CSV imports by normalized name.</p>
+                  <h2 className="text-2xl font-black tracking-normal text-primary-charcoal dark:text-white">Athlete Database</h2>
+                  <p className="mt-1 text-sm font-medium text-primary-charcoal/55 dark:text-gray-400">Auto-match CSV imports by normalized name.</p>
                 </div>
               </div>
             </div>
             <div className="flex flex-col gap-2 sm:flex-row">
               <button
                 aria-label="Create athlete"
-                className={buttonClassName("bg-zinc-950 px-4 text-white dark:bg-zinc-50 dark:text-zinc-950")}
+                className={buttonClassName("bg-primary-brown px-4 text-white dark:bg-primary-brown dark:text-white")}
                 onClick={openCreateModal}
                 type="button"
               >
@@ -1381,7 +1381,7 @@ export function AthleteDatabaseApp({ embedded = false }: { embedded?: boolean } 
                 Create Athlete
               </button>
               <button
-                className={buttonClassName("border border-zinc-200 bg-white px-4 text-zinc-700 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-200")}
+                className={buttonClassName("border border-secondary-sand/70 bg-white px-4 text-primary-charcoal/85 dark:border-zinc-700 dark:bg-zinc-950 dark:text-gray-300")}
                 onClick={() => setImportOpen(true)}
                 type="button"
               >
@@ -1391,18 +1391,18 @@ export function AthleteDatabaseApp({ embedded = false }: { embedded?: boolean } 
             </div>
           </div>
 
-          <div className="mb-4 grid gap-2 text-sm font-semibold text-zinc-600 sm:grid-cols-2 dark:text-zinc-300">
-            <div className="rounded-[8px] bg-zinc-50 px-3 py-2 dark:bg-zinc-900" role="status">
+          <div className="mb-4 grid gap-2 text-sm font-semibold text-primary-charcoal/70 sm:grid-cols-2 dark:text-gray-300">
+            <div className="rounded-xl bg-secondary-sand/20 px-3 py-2 dark:bg-zinc-900" role="status">
               {status}
             </div>
-            <div className="rounded-[8px] bg-zinc-50 px-3 py-2 text-xs font-bold text-zinc-500 dark:bg-zinc-900 dark:text-zinc-400">
+            <div className="rounded-xl bg-secondary-sand/20 px-3 py-2 text-xs font-bold text-primary-charcoal/55 dark:bg-zinc-900 dark:text-gray-400">
               {storageStatus}
             </div>
           </div>
 
           <form className="mb-4 flex flex-col gap-2 sm:flex-row" onSubmit={handleSearch}>
             <label className="relative flex-1">
-              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-zinc-400" />
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-primary-charcoal/40" />
               <input
                 className={inputClassName("pl-9")}
                 onChange={(event) => setSearch(event.target.value)}
@@ -1410,7 +1410,7 @@ export function AthleteDatabaseApp({ embedded = false }: { embedded?: boolean } 
                 value={search}
               />
             </label>
-            <button className={buttonClassName("bg-zinc-950 px-4 text-white dark:bg-zinc-50 dark:text-zinc-950")} disabled={loading} type="submit">
+            <button className={buttonClassName("bg-primary-brown px-4 text-white dark:bg-primary-brown dark:text-white")} disabled={loading} type="submit">
               Search
             </button>
           </form>
@@ -1422,7 +1422,7 @@ export function AthleteDatabaseApp({ embedded = false }: { embedded?: boolean } 
               return (
                 <article
                   className={cn(
-                    "overflow-hidden rounded-[8px] border border-zinc-200 bg-white transition dark:border-zinc-800 dark:bg-zinc-950",
+                    "overflow-hidden rounded-xl border border-secondary-sand/70 bg-white transition dark:border-zinc-800 dark:bg-zinc-950",
                     isExpanded && "border-primary-green/30 shadow-[0_16px_34px_rgba(90,46,23,0.08)]",
                   )}
                   key={athlete.id}
@@ -1430,15 +1430,15 @@ export function AthleteDatabaseApp({ embedded = false }: { embedded?: boolean } 
                   <div className="grid gap-3 p-4 md:grid-cols-[56px_minmax(0,1fr)_minmax(280px,380px)_132px] md:items-center">
                     <ProfilePreview athlete={athlete} />
                     <div className="min-w-0">
-                      <div className="truncate text-base font-black text-zinc-950 dark:text-zinc-50">{athlete.name}</div>
-                      <div className="mt-1 truncate font-mono text-xs text-zinc-500 dark:text-zinc-400">{athlete.normalizedName}</div>
+                      <div className="truncate text-base font-black text-primary-charcoal dark:text-white">{athlete.name}</div>
+                      <div className="mt-1 truncate font-mono text-xs text-primary-charcoal/55 dark:text-gray-400">{athlete.normalizedName}</div>
                     </div>
                     <AthletePhotoSummary athlete={athlete} />
                     <div className="flex justify-start gap-2 md:justify-end">
                       {isExpanded ? (
                         <button
                           aria-label={`Collapse ${athlete.name} photo details`}
-                          className="grid size-9 cursor-pointer place-items-center rounded-[8px] border border-zinc-200 bg-white text-zinc-600 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                          className="grid size-9 cursor-pointer place-items-center rounded-xl border border-secondary-sand/70 bg-white text-primary-charcoal/70 transition hover:bg-secondary-sand/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-gray-300 dark:hover:bg-zinc-900"
                           onClick={() => setExpandedAthleteId(null)}
                           title={`Collapse ${athlete.name} photo details`}
                           type="button"
@@ -1448,7 +1448,7 @@ export function AthleteDatabaseApp({ embedded = false }: { embedded?: boolean } 
                       ) : (
                         <button
                           aria-label={`Expand ${athlete.name} photo details`}
-                          className="grid size-9 cursor-pointer place-items-center rounded-[8px] border border-zinc-200 bg-white text-zinc-600 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                          className="grid size-9 cursor-pointer place-items-center rounded-xl border border-secondary-sand/70 bg-white text-primary-charcoal/70 transition hover:bg-secondary-sand/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-gray-300 dark:hover:bg-zinc-900"
                           onClick={() => setExpandedAthleteId(athlete.id)}
                           title={`Expand ${athlete.name} photo details`}
                           type="button"
@@ -1458,7 +1458,7 @@ export function AthleteDatabaseApp({ embedded = false }: { embedded?: boolean } 
                       )}
                       <button
                         aria-label={`Edit ${athlete.name}`}
-                        className="grid size-9 cursor-pointer place-items-center rounded-[8px] border border-zinc-200 bg-white text-zinc-600 transition hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-zinc-300 dark:hover:bg-zinc-900"
+                        className="grid size-9 cursor-pointer place-items-center rounded-xl border border-secondary-sand/70 bg-white text-primary-charcoal/70 transition hover:bg-secondary-sand/20 dark:border-zinc-700 dark:bg-zinc-950 dark:text-gray-300 dark:hover:bg-zinc-900"
                         onClick={() => openEditModal(athlete)}
                         title={`Edit ${athlete.name}`}
                         type="button"
@@ -1467,7 +1467,7 @@ export function AthleteDatabaseApp({ embedded = false }: { embedded?: boolean } 
                       </button>
                       <button
                         aria-label={`Delete ${athlete.name}`}
-                        className="grid size-9 cursor-pointer place-items-center rounded-[8px] border border-zinc-200 bg-white text-red-600 transition hover:bg-red-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-red-300 dark:hover:bg-red-950/30"
+                        className="grid size-9 cursor-pointer place-items-center rounded-xl border border-secondary-sand/70 bg-white text-red-600 transition hover:bg-red-50 dark:border-zinc-700 dark:bg-zinc-950 dark:text-red-300 dark:hover:bg-red-950/30"
                         onClick={() => void handleDelete(athlete)}
                         title={`Delete ${athlete.name}`}
                         type="button"
@@ -1481,7 +1481,7 @@ export function AthleteDatabaseApp({ embedded = false }: { embedded?: boolean } 
               );
             })}
             {!athletes.length ? (
-              <div className="rounded-[8px] border border-zinc-200 px-4 py-12 text-center text-sm font-semibold text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+              <div className="rounded-xl border border-secondary-sand/70 px-4 py-12 text-center text-sm font-semibold text-primary-charcoal/55 dark:border-zinc-800 dark:text-gray-400">
                 {loading ? "Loading athletes..." : "No athletes yet. Create one to enable automatic leaderboard images."}
               </div>
             ) : null}
