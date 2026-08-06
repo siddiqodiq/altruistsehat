@@ -48,8 +48,8 @@ export interface BumpChartData {
   biggestDrops: BumpChartMover[];
 }
 
-export function leaderboardAthleteKey(athlete: Pick<AthleteEntry, "athleteId" | "normalizedName" | "name">): string {
-  return athlete.athleteId ?? athlete.normalizedName ?? normalizeAthleteName(athlete.name);
+export function leaderboardAthleteKey(athlete: Pick<AthleteEntry, "normalizedName" | "name">): string {
+  return athlete.normalizedName ?? normalizeAthleteName(athlete.name);
 }
 
 function weekLabel(snapshot: LeaderboardWeekSnapshot): string {

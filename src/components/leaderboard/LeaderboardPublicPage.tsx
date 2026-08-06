@@ -62,7 +62,7 @@ export function LeaderboardPublicPage() {
     normalizeLeaderboardCategory(searchParams.get("category")),
   );
   const [selectedSnapshotKey, setSelectedSnapshotKey] = useState("");
-  const [, setLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [highlightedAthleteKey, setHighlightedAthleteKey] = useState<string | null>(null);
   const [photoEnrichedSpec, setPhotoEnrichedSpec] = useState<{ key: string; spec: LeaderboardSpec } | null>(null);
@@ -276,7 +276,13 @@ export function LeaderboardPublicPage() {
       />
 
       <section className="mx-auto w-full max-w-[1600px] px-4 pb-20 sm:px-6 lg:px-8">
-        <CategorySwitch summaries={categorySummaries} selectedCategory={selectedCategory} onSelect={handleCategorySelect} />
+        <CategorySwitch
+          hasError={!loading && Boolean(loadError)}
+          isLoading={loading}
+          onSelect={handleCategorySelect}
+          selectedCategory={selectedCategory}
+          summaries={categorySummaries}
+        />
 
         <div className="mt-8 grid gap-8">
           {loadError ? (
@@ -306,7 +312,7 @@ export function LeaderboardPublicPage() {
                   }
                   onHighlightChange={setHighlightedAthleteKey}
                 />
-                <MovementNarrative data={chartData} metric={selectedSpec.metric} story={story} />
+                <MovementNarrative metric={selectedSpec.metric} story={story} />
               </div>
             ) : (
               <EmptyState title="Belum ada aktivitas minggu ini." message={`${selectedCategoryConfig.label} belum memiliki data leaderboard.`} />

@@ -25,7 +25,7 @@ import { LeaderboardCanvas } from "./LeaderboardCanvas";
 import { initialsForName } from "@/lib/leaderboard/images";
 import { buildBumpChartData, leaderboardAthleteKey, type BumpChartData } from "@/lib/leaderboard/bump-chart";
 import { LEADERBOARD_CATEGORIES, type LeaderboardCategoryId } from "@/lib/leaderboard/categories";
-import { formatMetricValue } from "@/lib/leaderboard/metrics";
+import { calculateWeeklyComparison, formatMetricValue } from "@/lib/leaderboard/metrics";
 import {
   clampExportPhotoAdjustment,
   isCompactExportLayoutMode,
@@ -125,10 +125,14 @@ export function CategorySwitch({
   selectedCategory,
   summaries = {},
   onSelect,
+  isLoading = false,
+  hasError = false,
 }: {
   selectedCategory: LeaderboardCategoryId;
   summaries?: Partial<Record<LeaderboardCategoryId, CategorySummary>>;
   onSelect: (category: LeaderboardCategoryId) => void;
+  isLoading?: boolean;
+  hasError?: boolean;
 }) {
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     const currentIndex = LEADERBOARD_CATEGORIES.findIndex((category) => category.id === selectedCategory);
@@ -193,9 +197,15 @@ export function CategorySwitch({
                 >
                   {category.label}
                 </span>
-                <span className={cn("mt-1 block text-sm font-bold", isActive ? "text-white/82" : "text-primary-charcoal/55 dark:text-gray-400")}>
-                  {total} <span className="px-1 opacity-50">·</span> {athletes} atlet
-                </span>
+                {isLoading ? (
+                  <span
+                    className={cn("mt-1.5 block h-3.5 w-24 animate-pulse rounded-full", isActive ? "bg-white/25" : "bg-secondary-sand/60 dark:bg-zinc-700")}
+                  />
+                ) : (
+                  <span className={cn("mt-1 block text-sm font-bold", isActive ? "text-white/82" : "text-primary-charcoal/55 dark:text-gray-400")}>
+                    {hasError ? "—" : total} <span className="px-1 opacity-50">·</span> {hasError ? "—" : athletes} atlet
+                  </span>
+                )}
                 {isActive ? <span className="mt-3 block h-0.5 w-20 rounded-full bg-secondary-sand" /> : null}
               </span>
             </button>
@@ -212,11 +222,19 @@ function movementBadge(movement?: AthleteMovement) {
   }
 
   if (movement.delta > 0) {
-    return <span className="text-primary-green dark:text-secondary-teal">+{movement.delta}</span>;
+    return (
+      <span className="inline-flex items-center gap-1 text-primary-green dark:text-secondary-teal">
+        <TrendingUp className="size-3.5" />+{movement.delta}
+      </span>
+    );
   }
 
   if (movement.delta < 0) {
-    return <span className="text-secondary-clay dark:text-secondary-sand">-{Math.abs(movement.delta)}</span>;
+    return (
+      <span className="inline-flex items-center gap-1 text-secondary-clay dark:text-secondary-sand">
+        <TrendingDown className="size-3.5" />-{Math.abs(movement.delta)}
+      </span>
+    );
   }
 
   return <span className="text-primary-charcoal/40 dark:text-gray-500">-</span>;
@@ -255,18 +273,6 @@ function rankChangeLabel(delta: number) {
 }
 
 
-function percentageLabel(value?: number) {
-  if (value === undefined || !Number.isFinite(value)) {
-    return "baru";
-  }
-
-  if (Math.abs(value) < 1) {
-    return "stabil";
-  }
-
-  return `${value > 0 ? "+" : ""}${Math.round(value)}%`;
-}
-
 function signedPosition(value: number) {
   if (value > 0) {
     return `+${value}`;
@@ -291,18 +297,23 @@ function Sparkline({ values }: { values: number[] }) {
   const min = Math.min(...values);
   const max = Math.max(...values);
   const range = Math.max(1, max - min);
-  const path = values
-    .map((value, index) => {
-      const x = padding + (index / Math.max(1, values.length - 1)) * (width - padding * 2);
-      const y = height - padding - ((value - min) / range) * (height - padding * 2);
-      return `${index === 0 ? "M" : "L"} ${x} ${y}`;
-    })
-    .join(" ");
+  const points = values.map((value, index) => ({
+    value,
+    x: padding + (index / Math.max(1, values.length - 1)) * (width - padding * 2),
+    y: height - padding - ((value - min) / range) * (height - padding * 2),
+  }));
+  const path = points.map((point, index) => `${index === 0 ? "M" : "L"} ${point.x} ${point.y}`).join(" ");
+  const lastPoint = points[points.length - 1];
 
   return (
-    <svg aria-hidden="true" className="h-8 w-28" viewBox={`0 0 ${width} ${height}`}>
+    <svg className="h-8 w-28" viewBox={`0 0 ${width} ${height}`}>
       <path d={path} fill="none" stroke="#5A2E17" strokeLinecap="round" strokeLinejoin="round" strokeWidth="2.5" />
-      <circle cx={width - padding} cy={height - padding - ((values[values.length - 1] - min) / range) * (height - padding * 2)} fill="#5E7A5E" r="3" />
+      {points.map((point, index) => (
+        <circle cx={point.x} cy={point.y} fill="transparent" key={index} r={6}>
+          <title>{point.value}</title>
+        </circle>
+      ))}
+      <circle cx={lastPoint.x} cy={lastPoint.y} fill="#5E7A5E" r="3" />
     </svg>
   );
 }
@@ -443,14 +454,13 @@ export function LeaderboardTable({
   ) : (
     <div className="overflow-hidden rounded-[1.35rem] border border-secondary-sand/60 bg-white dark:border-zinc-800 dark:bg-zinc-900">
       <div className="max-h-[560px] w-full overflow-auto">
-        <table className="w-full min-w-[1040px] table-fixed border-collapse">
+        <table className="w-full min-w-[860px] table-fixed border-collapse">
           <colgroup>
             <col className="w-[80px]" />
             <col className="w-[320px]" />
             <col className="w-[160px]" />
             <col className="w-[130px]" />
             <col className="w-[170px]" />
-            <col className="w-[180px]" />
           </colgroup>
           <thead>
             <tr className="border-b border-secondary-sand/50 bg-white text-xs font-black uppercase tracking-[0.08em] text-primary-charcoal/45 dark:border-zinc-800 dark:bg-zinc-900 dark:text-gray-500">
@@ -459,7 +469,6 @@ export function LeaderboardTable({
               <th className="whitespace-nowrap px-5 py-4 text-right">{spec.metric === "time_minutes" ? "Waktu" : "Mileage"}</th>
               <th className="whitespace-nowrap px-5 py-4 text-center">Perubahan</th>
               <th className="whitespace-nowrap px-5 py-4 text-left">Trend</th>
-              <th className="whitespace-nowrap px-5 py-4 text-left">Aktivitas</th>
             </tr>
           </thead>
           <tbody>
@@ -505,7 +514,6 @@ export function LeaderboardTable({
                   </td>
                   <td className="whitespace-nowrap px-5 py-4 text-center text-sm font-black">{movementBadge(movement)}</td>
                   <td className="px-5 py-4"><Sparkline values={values} /></td>
-                  <td className="whitespace-nowrap px-5 py-4 text-sm font-semibold text-primary-charcoal/48 dark:text-gray-500">Minggu ini</td>
                 </tr>
               );
             })}
@@ -605,15 +613,15 @@ export function LeaderboardStoryHero({
   const leader = story.leader;
   const activeAthletes = athleteCount ?? story.athleteCount ?? spec.athletes.length;
   const weekLabel = String(spec.weekNumber).toUpperCase().startsWith("WEEK") ? String(spec.weekNumber).toUpperCase() : `WEEK ${spec.weekNumber}`;
-  const delta = percentageLabel(story.totalDeltaPercent);
+  const delta = calculateWeeklyComparison(total, story.previousTotal);
   const average = activeAthletes ? total / activeAthletes : 0;
   const storyLines = [
-    story.topMover ? `${story.topMover.name} naik ${story.topMover.delta} posisi.` : "Pergerakan naik mulai terbentuk.",
-    story.biggestDrop ? `${story.biggestDrop.name} turun ${Math.abs(story.biggestDrop.delta)} posisi.` : "Pack relatif stabil minggu ini.",
+    story.topMover ? `${story.topMover.name} naik paling tinggi, melompat ${story.topMover.delta} posisi.` : "Belum ada kenaikan peringkat besar minggu ini.",
+    story.biggestDrop ? `${story.biggestDrop.name} turun paling jauh, ${Math.abs(story.biggestDrop.delta)} posisi.` : "Belum ada penurunan peringkat besar minggu ini.",
     leader && story.leaderStreak && story.leaderStreak > 1
-      ? `${leader.name} memimpin ${story.leaderStreak} minggu beruntun.`
-      : "Perebutan podium masih terbuka.",
-    `Komunitas semakin aktif dengan ${activeAthletes} atlet.`,
+      ? `${leader.name} bertahan di posisi 1 selama ${story.leaderStreak} minggu berturut-turut.`
+      : "Perebutan posisi 1 masih terbuka.",
+    `${activeAthletes} atlet ikut aktif berkompetisi minggu ini.`,
   ];
 
   return (
@@ -687,32 +695,28 @@ export function LeaderboardStoryHero({
   );
 }
 
-export function MovementNarrative({ data, metric, story }: { data?: BumpChartData; metric: LeaderboardSpec["metric"]; story: LeaderboardStory }) {
+export function MovementNarrative({ metric, story }: { metric: LeaderboardSpec["metric"]; story: LeaderboardStory }) {
   const leader = story.leader;
   const insightLines = [
     leader
-      ? `${leader.name} mempertahankan lead dengan ${formatMetricValue(leader.value, metric)}${story.leaderStreak && story.leaderStreak > 1 ? `, sudah ${story.leaderStreak} minggu di puncak.` : "."}`
-      : "Belum ada pemimpin minggu ini.",
+      ? `${leader.name} memimpin klasemen dengan ${formatMetricValue(leader.value, metric)}${story.leaderStreak && story.leaderStreak > 1 ? `, sudah ${story.leaderStreak} minggu berturut-turut di posisi 1.` : "."}`
+      : "Belum ada pemimpin klasemen minggu ini.",
     story.topMover
-      ? `${story.topMover.name} menjadi cerita kenaikan terbesar, melompat ${story.topMover.delta} posisi.`
-      : "Belum ada lonjakan ranking besar dari minggu sebelumnya.",
+      ? `${story.topMover.name} naik paling tinggi minggu ini, melompat ${story.topMover.delta} posisi.`
+      : "Belum ada kenaikan peringkat besar minggu ini.",
     story.biggestDrop
-      ? `${story.biggestDrop.name} kehilangan ${Math.abs(story.biggestDrop.delta)} posisi dan masuk zona tekanan.`
-      : "Tidak ada penurunan besar; pack relatif stabil.",
+      ? `${story.biggestDrop.name} turun paling jauh minggu ini, ${Math.abs(story.biggestDrop.delta)} posisi.`
+      : "Belum ada penurunan peringkat besar minggu ini.",
     story.athleteCount
-      ? `${story.athleteCount} atlet aktif tercatat dalam kompetisi minggu ini.`
-      : "Aktivitas komunitas akan muncul setelah snapshot tersedia.",
+      ? `${story.athleteCount} atlet aktif berkompetisi minggu ini.`
+      : "Data aktivitas komunitas akan muncul setelah ada snapshot minggu ini.",
   ];
-  const movers = data?.topMovers?.length
-    ? data.topMovers
-    : story.topMover
-      ? [{ key: story.topMover.key, name: story.topMover.name, delta: story.topMover.delta, fromRank: story.topMover.fromRank ?? story.topMover.toRank, toRank: story.topMover.toRank }]
-      : [];
-  const drops = data?.biggestDrops?.length
-    ? data.biggestDrops
-    : story.biggestDrop
-      ? [{ key: story.biggestDrop.key, name: story.biggestDrop.name, delta: story.biggestDrop.delta, fromRank: story.biggestDrop.fromRank ?? story.biggestDrop.toRank, toRank: story.biggestDrop.toRank }]
-      : [];
+  const movers = story.topMover
+    ? [{ key: story.topMover.key, name: story.topMover.name, delta: story.topMover.delta, fromRank: story.topMover.fromRank ?? story.topMover.toRank, toRank: story.topMover.toRank }]
+    : [];
+  const drops = story.biggestDrop
+    ? [{ key: story.biggestDrop.key, name: story.biggestDrop.name, delta: story.biggestDrop.delta, fromRank: story.biggestDrop.fromRank ?? story.biggestDrop.toRank, toRank: story.biggestDrop.toRank }]
+    : [];
 
   return (
     <aside className="rounded-[1.45rem] border border-secondary-sand/70 bg-white/86 p-5 shadow-[0_18px_48px_rgb(90,46,23,0.06)] dark:border-zinc-800 dark:bg-zinc-900/86">
@@ -780,6 +784,14 @@ export function MovementNarrative({ data, metric, story }: { data?: BumpChartDat
       </section>
     </aside>
   );
+}
+
+function athleteColorIndex(key: string, paletteSize: number): number {
+  let hash = 0;
+  for (let i = 0; i < key.length; i += 1) {
+    hash = (hash * 31 + key.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash) % paletteSize;
 }
 
 export function BumpChart({
@@ -1079,11 +1091,11 @@ export function BumpChart({
               </g>
             );
           })}
-          {visibleSeries.map((series, seriesIndex) => {
+          {visibleSeries.map((series) => {
             const points = pointsForSeries(series);
             const segments = rankedSegments(points);
             const rankedPoints = segments.flat();
-            const color = colors[seriesIndex % colors.length];
+            const color = colors[athleteColorIndex(series.key, colors.length)];
             const isActive = activeKey === series.key;
             const hasSpotlight = Boolean(activeKey);
             const isInLatestTopTen = series.latestRank <= data.maxRank;
@@ -1239,7 +1251,21 @@ export function WeekTabs({
       >
         ‹
       </button>
-      <span className="min-w-[128px] text-center tracking-[-0.01em]">{compactPeriodLabel(selectedSnapshot)}</span>
+      <select
+        aria-label="Lompat ke periode tertentu"
+        className="min-w-[128px] rounded-lg border border-transparent bg-transparent text-center tracking-[-0.01em] hover:border-secondary-sand/70 focus:outline-none focus:ring-2 focus:ring-primary-green/30 dark:hover:border-zinc-700"
+        onChange={(event) => onSelect(event.target.value)}
+        value={keyForSnapshot(selectedSnapshot)}
+      >
+        {snapshots
+          .slice()
+          .reverse()
+          .map((snapshot) => (
+            <option key={keyForSnapshot(snapshot)} value={keyForSnapshot(snapshot)}>
+              {compactPeriodLabel(snapshot)}
+            </option>
+          ))}
+      </select>
       <button
         aria-label="Lihat periode berikutnya"
         className="text-lg leading-none text-primary-brown/45 transition hover:translate-x-0.5 hover:text-primary-brown disabled:pointer-events-none disabled:opacity-25 dark:text-secondary-sand/55 dark:hover:text-secondary-sand"
