@@ -95,6 +95,7 @@ import { buildSeasonWeekCalendar, shiftMonthIso } from "@/lib/leaderboard/templa
 import {
   EmptyState,
   ExportPreviewModal,
+  RankBadge,
   buttonClassName,
   fieldLabelClassName,
   inputClassName,
@@ -235,10 +236,7 @@ function AdminContextBar({
       className="min-w-0 rounded-[1.35rem] border border-secondary-sand/70 bg-white/95 p-4 shadow-[0_14px_34px_rgb(90,46,23,0.08)] dark:border-zinc-800 dark:bg-zinc-900/95 sm:p-5"
     >
       <div className="flex flex-col gap-3 border-b border-secondary-sand/50 pb-3 dark:border-zinc-800 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex h-8 items-center rounded-full border border-amber-200 bg-amber-50 px-3 text-[11px] font-black uppercase tracking-[0.12em] text-amber-700 dark:border-amber-900/60 dark:bg-amber-950/35 dark:text-amber-200">
-            Development Mode
-          </span>
+        <div className="flex flex-wrap items-center gap-3">
           <span
             className={cn(
               "inline-flex h-8 items-center rounded-full border px-3 text-xs font-black",
@@ -250,6 +248,10 @@ function AdminContextBar({
             {canEdit ? "Admin aktif" : "Admin belum aktif"}
           </span>
           <span className="text-xs font-semibold text-primary-charcoal/50 dark:text-gray-400">{status}</span>
+          <span className="inline-flex items-center gap-1 text-[11px] font-bold uppercase tracking-[0.1em] text-amber-600/80 dark:text-amber-400/80">
+            <AlertTriangle className="size-3.5" />
+            Development mode · token sementara
+          </span>
         </div>
 
         {!canEdit ? (
@@ -293,12 +295,12 @@ function AdminContextBar({
             </p>
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="grid content-center gap-1 rounded-xl border border-secondary-sand/60 bg-primary-beige/35 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-800/70">
+          <div className="flex divide-x divide-secondary-sand/50 dark:divide-zinc-700">
+            <div className="grid flex-1 gap-1 pr-3">
               <span className="text-[10px] font-black uppercase tracking-[0.14em] text-primary-charcoal/45 dark:text-gray-500">Atlet</span>
               <span className="truncate text-sm font-black text-primary-charcoal dark:text-gray-100">{context.athletes}</span>
             </div>
-            <div className="grid content-center gap-1 rounded-xl border border-secondary-sand/60 bg-primary-beige/35 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-800/70">
+            <div className="grid flex-1 gap-1 pl-3">
               <span className="text-[10px] font-black uppercase tracking-[0.14em] text-primary-charcoal/45 dark:text-gray-500">Total</span>
               <span className="truncate text-sm font-black text-primary-charcoal dark:text-gray-100">{context.total}</span>
             </div>
@@ -398,9 +400,9 @@ function AdminContextBar({
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="grid content-center gap-1 rounded-xl border border-secondary-sand/60 bg-primary-beige/35 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-800/70">
-                  <span className="text-[10px] font-black uppercase tracking-[0.14em] text-primary-charcoal/45 dark:text-gray-500">Metric</span>
-                  <span className="truncate text-sm font-black text-primary-charcoal dark:text-gray-100">{selectedSportOption.metricLabel}</span>
+                <div className={fieldLabelClassName()}>
+                  Metric
+                  <p className="truncate text-sm font-black normal-case tracking-normal text-primary-charcoal dark:text-gray-100">{selectedSportOption.metricLabel}</p>
                 </div>
                 <label className={fieldLabelClassName()}>
                   Total manual
@@ -550,7 +552,7 @@ function AdminLeaderboardTable({
       cn(
         extra,
         changedCells.has(athleteCellKey(id, field)) &&
-          "border-primary-green/70 bg-amber-50 shadow-[inset_0_0_0_1px_rgb(94,122,94,0.2)] dark:border-secondary-teal/70 dark:bg-amber-950/25",
+          "border-l-[3px] border-l-amber-400 bg-amber-50/40 dark:border-l-amber-500 dark:bg-amber-950/15",
       ),
     );
   }
@@ -608,8 +610,8 @@ function AdminLeaderboardTable({
                     data-leaderboard-athlete-key={athleteKey(athlete)}
                     key={athlete.id}
                   >
-                    <td className="sticky left-0 z-20 whitespace-nowrap bg-inherit px-4 py-3 font-poppins text-lg font-bold text-primary-brown dark:text-secondary-sand">
-                      {athlete.rank ? `#${athlete.rank}` : "—"}
+                    <td className="sticky left-0 z-20 whitespace-nowrap bg-inherit px-4 py-3">
+                      <RankBadge rank={athlete.rank} size="sm" />
                     </td>
                     <td className="sticky left-[80px] z-20 bg-inherit px-4 py-3">
                       <input
@@ -659,13 +661,13 @@ function AdminLeaderboardTable({
                         </button>
                       <button
                           aria-label={`Delete ${athlete.name || "athlete"}`}
-                          className="inline-flex h-10 items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 text-sm font-bold text-red-700 transition hover:bg-red-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-red-900/60 dark:bg-red-950/35 dark:text-red-200"
+                          className="inline-flex size-10 items-center justify-center rounded-xl border border-transparent text-red-500/70 transition hover:border-red-200 hover:bg-red-50 hover:text-red-700 disabled:cursor-not-allowed disabled:opacity-40 dark:text-red-400/70 dark:hover:border-red-900/60 dark:hover:bg-red-950/35"
                         disabled={!canEdit}
                           onClick={() => onRequestDelete({ id: athlete.id, name: athlete.name })}
+                        title="Delete"
                         type="button"
                       >
                         <Trash2 className="size-4" />
-                          Delete
                       </button>
                       </div>
                     </td>

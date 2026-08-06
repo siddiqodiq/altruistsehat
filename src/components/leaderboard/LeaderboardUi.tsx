@@ -52,7 +52,7 @@ import { useModalA11y } from "@/hooks/useModalA11y";
 
 export function buttonClassName(className?: string) {
   return cn(
-    "inline-flex h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-55",
+    "inline-flex h-11 items-center justify-center gap-2 rounded-xl px-4 text-sm font-semibold transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-55 disabled:active:scale-100",
     className,
   );
 }
@@ -74,6 +74,37 @@ export function EmptyState({ title, message }: { title: string; message: string 
       <p className="font-poppins text-xl font-semibold text-primary-charcoal dark:text-gray-100">{title}</p>
       <p className="mt-2 text-sm leading-6 text-primary-charcoal/60 dark:text-gray-400">{message}</p>
     </div>
+  );
+}
+
+const RANK_MEDAL_TONE: Record<number, { bg: string; ring: string; text: string }> = {
+  1: { bg: "bg-[#FFC400]/15 dark:bg-[#FFC400]/10", ring: "ring-[#FFC400]/45", text: "text-[#8A6200] dark:text-[#FFD666]" },
+  2: { bg: "bg-zinc-400/15 dark:bg-zinc-300/10", ring: "ring-zinc-400/45", text: "text-zinc-600 dark:text-zinc-300" },
+  3: { bg: "bg-[#C47B35]/15 dark:bg-[#C47B35]/10", ring: "ring-[#C47B35]/45", text: "text-[#8A5321] dark:text-[#E3A76F]" },
+};
+
+export function RankBadge({ rank, size = "md" }: { rank?: number; size?: "md" | "sm" }) {
+  if (!rank) {
+    return <span className="font-poppins text-lg font-bold text-primary-charcoal/40 dark:text-gray-500">—</span>;
+  }
+
+  const tone = RANK_MEDAL_TONE[rank];
+  if (!tone) {
+    return <span className="font-poppins text-lg font-black text-primary-brown dark:text-secondary-sand">#{rank}</span>;
+  }
+
+  return (
+    <span
+      className={cn(
+        "inline-flex items-center rounded-full font-poppins font-black ring-1",
+        size === "sm" ? "px-2 py-0.5 text-sm" : "px-2.5 py-1 text-base",
+        tone.bg,
+        tone.ring,
+        tone.text,
+      )}
+    >
+      #{rank}
+    </span>
   );
 }
 
@@ -449,7 +480,9 @@ export function LeaderboardTable({
                   onMouseEnter={() => onAthleteHover?.(key)}
                   onMouseLeave={() => onAthleteHover?.(null)}
                 >
-                  <td className="sticky left-0 z-20 whitespace-nowrap bg-inherit px-5 py-4 font-poppins text-xl font-black text-primary-brown dark:text-secondary-sand">#{athlete.rank}</td>
+                  <td className="sticky left-0 z-20 whitespace-nowrap bg-inherit px-5 py-4">
+                    <RankBadge rank={athlete.rank} />
+                  </td>
                   <td className="sticky left-[80px] z-20 bg-inherit px-5 py-4">
                     <span className="flex min-w-0 items-center gap-3">
                       <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-full bg-secondary-sand/70 text-[11px] font-black text-primary-brown ring-1 ring-primary-brown/10 dark:bg-zinc-800 dark:text-secondary-sand">
@@ -793,7 +826,9 @@ export function BumpChart({
     return data.series;
   }, [data.series, selectedSeries]);
 
-  const maxDisplayedRank = Math.max(10, data.maxRank);
+  const occupiedRanks = data.series.flatMap((series) => series.points.map((point) => point.rank)).filter((rank): rank is number => rank !== null);
+  const maxOccupiedRank = occupiedRanks.length ? Math.max(...occupiedRanks) : data.maxRank;
+  const maxDisplayedRank = Math.min(data.maxRank, Math.max(5, maxOccupiedRank));
   const height = Math.max(520, Math.min(760, maxDisplayedRank * 48));
   const innerWidth = width - padding.left - padding.right;
   const innerHeight = height - padding.top - padding.bottom;

@@ -165,7 +165,7 @@ function inputClassName(extra?: string) {
 
 function buttonClassName(extra?: string) {
   return cn(
-    "inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl text-sm font-black transition disabled:cursor-not-allowed disabled:opacity-60",
+    "inline-flex h-11 cursor-pointer items-center justify-center gap-2 rounded-xl text-sm font-black transition active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-60 disabled:active:scale-100",
     extra,
   );
 }
@@ -275,60 +275,20 @@ function statusLabelForSlot(status: PhotoSlotStatus) {
   return "Empty";
 }
 
-function PhotoSlotIcon({
-  athlete,
-  slot,
-}: {
-  athlete: AthleteRecord;
-  slot: PhotoSlotDefinition;
-}) {
-  const Icon = slot.icon;
-  const status = photoSlotStatus(athlete, slot.key);
-  const label = `${slot.label}: ${statusLabelForSlot(status)}`;
-
-  return (
-    <span
-      aria-label={label}
-      className={cn(
-        "relative grid size-9 shrink-0 place-items-center rounded-xl border text-primary-charcoal/40 transition dark:text-gray-500",
-        status === "custom" && "border-primary-charcoal bg-primary-brown text-white dark:border-gray-700 dark:bg-secondary-sand/15 dark:text-white",
-        status === "default" && "border-amber-200 bg-amber-50 text-amber-700 dark:border-amber-900/70 dark:bg-amber-950/30 dark:text-amber-200",
-        status === "empty" && "border-secondary-sand/70 bg-secondary-sand/20 dark:border-zinc-800 dark:bg-zinc-900",
-      )}
-      title={label}
-    >
-      <Icon size={15} strokeWidth={2.4} />
-      {status !== "empty" ? (
-        <span
-          className={cn(
-            "absolute -right-1 -top-1 size-2.5 rounded-full border-2 border-white dark:border-primary-charcoal",
-            status === "custom" ? "bg-primary-green" : "bg-amber-400",
-          )}
-        />
-      ) : null}
-    </span>
-  );
-}
-
 function AthletePhotoSummary({ athlete }: { athlete: AthleteRecord }) {
   const coverage = photoCoverageForAthlete(athlete);
 
   return (
-    <div className="flex min-w-0 flex-col gap-2 sm:flex-row sm:items-center sm:justify-between md:justify-start">
-      <div className="flex min-w-0 items-center gap-1.5" aria-label={`${athlete.name} photo slot status`}>
-        {PHOTO_SLOT_DEFINITIONS.map((slot) => (
-          <PhotoSlotIcon athlete={athlete} key={slot.key} slot={slot} />
-        ))}
-      </div>
-      <span
-        className={cn(
-          "w-fit rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.04em]",
-          coverage.customCount ? "bg-primary-green/12 text-primary-green" : "bg-secondary-sand/30 text-primary-charcoal/55 dark:bg-zinc-900 dark:text-gray-400",
-        )}
-      >
-        {coverage.statusLabel}
-      </span>
-    </div>
+    <span
+      className={cn(
+        "inline-flex w-fit items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-black uppercase tracking-[0.04em]",
+        coverage.customCount ? "bg-primary-green/12 text-primary-green" : "bg-secondary-sand/30 text-primary-charcoal/55 dark:bg-zinc-900 dark:text-gray-400",
+      )}
+      title={`${coverage.customCount}/${coverage.totalCount} foto custom · klik chevron untuk detail`}
+    >
+      <ImageIcon size={13} />
+      {coverage.statusLabel}
+    </span>
   );
 }
 
@@ -1427,7 +1387,7 @@ export function AthleteDatabaseApp({ embedded = false }: { embedded?: boolean } 
                   )}
                   key={athlete.id}
                 >
-                  <div className="grid gap-3 p-4 md:grid-cols-[56px_minmax(0,1fr)_minmax(280px,380px)_132px] md:items-center">
+                  <div className="grid gap-3 p-4 md:grid-cols-[56px_minmax(0,1fr)_minmax(120px,160px)_132px] md:items-center">
                     <ProfilePreview athlete={athlete} />
                     <div className="min-w-0">
                       <div className="truncate text-base font-black text-primary-charcoal dark:text-white">{athlete.name}</div>
