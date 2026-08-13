@@ -13,7 +13,7 @@ export default function CTA() {
       <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-secondary-clay/10 dark:bg-white/5 rounded-full blur-3xl translate-x-1/3 -translate-y-1/3 z-0"></div>
       <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-secondary-sand/10 dark:bg-white/5 rounded-full blur-3xl -translate-x-1/3 translate-y-1/3 z-0"></div>
 
-      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center">
+      <div className="relative z-10 w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 text-center">
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -23,7 +23,7 @@ export default function CTA() {
           <h2 className="text-4xl md:text-5xl font-poppins font-bold text-white mb-6 leading-tight">
             Investasi Terbaik <br className="hidden md:block" /> Adalah Kesehatan Anda.
           </h2>
-          <p className="text-xl text-secondary-sand/90 dark:text-gray-300 font-inter mb-10 max-w-2xl mx-auto">
+          <p className="mb-10 text-xl text-secondary-sand/90 dark:text-gray-300 font-inter">
             Bergabunglah dengan ribuan orang lainnya yang telah memulai perjalanan menuju hidup yang lebih bermakna dan sehat.
           </p>
           <div className="flex justify-center">

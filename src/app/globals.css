@@ -27,3 +27,22 @@
     @apply outline-2 outline-offset-2 outline-primary-brown dark:outline-secondary-teal;
   }
 }
+
+@layer utilities {
+  .topbar-clearance {
+    padding-top: 5.75rem;
+  }
+
+  @media (min-width: 768px) {
+    .topbar-clearance {
+      padding-top: 6.5rem;
+    }
+  }
+
+  .activity-logo-white-outline {
+    filter:
+      drop-shadow(0 0 1px rgba(255, 255, 255, 0.96))
+      drop-shadow(0 0 2px rgba(255, 255, 255, 0.92))
+      drop-shadow(0 1px 4px rgba(255, 255, 255, 0.82));
+  }
+}

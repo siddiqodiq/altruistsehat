@@ -39,7 +39,7 @@ test("athlete API routes accept and return podium photo adjustments", () => {
   expect(updateRoute).toContain("sportPodiumPhotoUrls");
   expect(updateRoute).toContain("podium_photo_adjustments");
   expect(updateRoute).toContain("sport_podium_photo_urls");
-  expect(lookupRoute).toContain("athleteSelectColumns");
+  expect(lookupRoute).toContain("athletePublicSelectColumns");
 });
 
 test("athlete photo payloads can explicitly clear stored photo URLs", () => {
@@ -73,7 +73,7 @@ test("athlete sport photo saves fail loudly when the Supabase sport column is mi
 test("athlete admin exposes sport-specific podium photo slots without fallback copy", () => {
   const appSource = source("src/components/athletes/AthleteDatabaseApp.tsx");
 
-  expect(appSource).toContain("Sport Podium Photos");
+  expect(appSource).toContain("Foto kegiatan");
   expect(appSource).toContain("SPORT_PODIUM_PHOTO_OPTIONS");
   expect(appSource).toContain("sportPodiumPhotoUrls");
   expect(appSource).toContain("sportPodiumPreviewUrls");

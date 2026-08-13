@@ -3,11 +3,11 @@ import { z } from "zod";
 import { normalizeAthleteName } from "@/lib/athletes/normalize";
 import { errorMessage } from "@/lib/supabase/errors";
 import {
-  athleteSelectColumns,
+  athletePublicSelectColumns,
   createSupabaseServiceClient,
   isMissingAthletePodiumPhotoAdjustmentsColumn,
   isMissingAthleteSportPodiumPhotoUrlsColumn,
-  mapAthleteRow,
+  mapPublicAthleteRow,
   type AthleteRow,
 } from "@/lib/supabase/server";
 
@@ -25,7 +25,7 @@ function lookupQuery(
 ) {
   return supabase
     .from("athletes")
-    .select(athleteSelectColumns(options))
+    .select(athletePublicSelectColumns(options))
     .in("normalized_name", normalizedNames);
 }
 
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
       throw error;
     }
 
-    return NextResponse.json({ athletes: ((data ?? []) as unknown as AthleteRow[]).map(mapAthleteRow) });
+    return NextResponse.json({ athletes: ((data ?? []) as unknown as AthleteRow[]).map(mapPublicAthleteRow) });
   } catch (error) {
     const message = errorMessage(error, "Athlete lookup failed.");
     return NextResponse.json({ error: message }, { status: message.includes("Supabase is not configured") ? 503 : 500 });

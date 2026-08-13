@@ -13,8 +13,8 @@ export default function Hero() {
   const currentLogo = theme === "dark" ? logoPutih : logoImg;
 
   return (
-    <section className="relative pt-24 pb-20 lg:pt-28 lg:pb-32 overflow-hidden bg-gradient-to-b from-primary-beige to-secondary-sand/30 dark:from-[#121212] dark:to-zinc-900 transition-colors duration-300">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative">
+    <section className="relative pt-0 pb-20 lg:pb-32 overflow-hidden bg-gradient-to-b from-primary-beige to-secondary-sand/30 dark:from-[#121212] dark:to-zinc-900 transition-colors duration-300">
+      <div className="relative w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
           
           {/* Text Content */}
@@ -24,10 +24,6 @@ export default function Hero() {
             transition={{ duration: 0.6 }}
             className="order-2 lg:order-1 lg:col-span-6 space-y-8"
           >
-            <div className="inline-block px-4 py-1.5 rounded-full bg-secondary-teal/10 dark:bg-secondary-teal/20 text-primary-green dark:text-secondary-teal font-medium text-sm mb-2 border border-secondary-teal/20 dark:border-secondary-teal/30">
-              Komunitas Olahraga
-            </div>
-            
             <h1 className="text-4xl md:text-5xl lg:text-6xl font-poppins font-bold text-primary-charcoal dark:text-gray-100 leading-[1.15]">
               Sehat Hari Ini, <br className="hidden md:block" />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary-brown to-primary-green dark:from-secondary-sand dark:to-secondary-teal">Lebih Baik Nanti.</span>
@@ -39,7 +35,7 @@ export default function Hero() {
             
             <div className="flex pt-4">
               <div className="bg-primary-brown dark:bg-[#2A2A2A] text-white pl-8 pr-6 py-3.5 rounded-full font-medium shadow-lg flex items-center gap-4">
-                <span>Join with us</span>
+                <span>Gabung bareng</span>
                 <div className="flex items-center gap-3 border-l border-white/30 pl-4">
                   <a href="https://www.instagram.com/altruistsehat/" target="_blank" rel="noopener noreferrer" className="hover:text-white/80 transition-colors hover:scale-110 transform">
                     <Instagram className="w-5 h-5" />
@@ -112,7 +108,7 @@ export default function Hero() {
       
       {/* Background Decor */}
       <div className="absolute top-1/2 left-0 w-64 h-64 bg-secondary-teal/20 rounded-full blur-3xl -translate-y-1/2 -translate-x-1/2"></div>
-      <div className="absolute top-20 right-0 w-96 h-96 bg-primary-brown/10 rounded-full blur-3xl translate-x-1/3"></div>
+      <div className="absolute top-0 right-0 w-96 h-96 bg-primary-brown/10 rounded-full blur-3xl translate-x-1/3"></div>
     </section>
   );
 }

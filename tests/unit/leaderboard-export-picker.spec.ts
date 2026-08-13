@@ -20,10 +20,11 @@ test("admin export preview wires the athlete count picker into preview and downl
   expect(uiSource).toContain('data-testid="export-athlete-picker"');
   expect(uiSource).toContain('data-testid="export-photo-adjust-panel"');
   expect(uiSource).toContain('data-testid="export-photo-adjust-athletes"');
-  expect(uiSource).toContain("isCompactExportLayoutMode");
-  expect(uiSource).toContain("compactZoomMin = 0.8");
-  expect(uiSource).toContain("isCompactExportLayoutMode(layoutMode) ? compactZoomMin : 1");
-  expect(uiSource).toContain("Math.max(zoomMin, selectedAdjustment.zoom)");
+  expect(uiSource).toContain("EXPORT_PHOTO_ADJUSTMENT_LIMITS");
+  expect(uiSource).toContain("EXPORT_PHOTO_ADJUSTMENT_LIMITS.zoomMin");
+  expect(uiSource).toContain("EXPORT_PHOTO_ADJUSTMENT_LIMITS.zoomMax");
+  expect(uiSource).toContain("EXPORT_PHOTO_ADJUSTMENT_LIMITS.offsetMax");
+  expect(uiSource).not.toContain("compactZoomMin = 0.8");
   expect(uiSource).toContain("handleExportPreviewPointerDown");
   expect(uiSource).toContain("handleExportPreviewPointerMove");
   expect(uiSource).toContain("handleExportPreviewPointerUp");
@@ -31,8 +32,10 @@ test("admin export preview wires the athlete count picker into preview and downl
   expect(uiSource).toContain("setPointerCapture");
   expect(uiSource).toContain("previewScale");
   expect(uiSource).toContain('data-testid="export-photo-direct-editor"');
-  expect(uiSource).toContain('aria-label="Zoom in selected photo"');
-  expect(uiSource).toContain('aria-label="Zoom out selected photo"');
+  expect(uiSource).toContain('aria-label="Perbesar foto terpilih"');
+  expect(uiSource).toContain('aria-label="Perkecil foto terpilih"');
+  expect(uiSource).not.toContain('max="2.2"');
+  expect(uiSource).not.toContain('max="40"');
   expect(uiSource).not.toContain("type=\"range\"");
   expect(uiSource).not.toContain(">Zoom<");
   expect(uiSource).not.toContain(">Horizontal<");
@@ -55,7 +58,7 @@ test("admin export preview wires the athlete count picker into preview and downl
   expect(adminSource).toMatch(/<ExportPreviewModal[\s\S]*onRefresh=\{\(\) => void handleRefreshExportPreview\(\)\}/);
   expect(uiSource).toContain("onRefresh");
   expect(uiSource).toContain("refreshingExportPreview");
-  expect(uiSource).toContain('aria-label="Refresh export"');
+  expect(uiSource).toContain('aria-label="Muat ulang pratinjau"');
   expect(uiSource).not.toContain("Refresh Export");
   expect(uiSource).toContain('data-testid="export-preview-stage"');
   expect(uiSource).toContain("grid place-items-center overflow-auto");
@@ -108,4 +111,15 @@ test("admin export download keeps preview adjustments stable while rendering", (
   expect(downloadBlock).toContain("specWithLatestDatabasePhotos(selectedExportSpec)");
   expect(downloadBlock).toContain("downloadLeaderboardPng(exportSpecToDownload");
   expect(downloadBlock).not.toContain("setExportPreviewSpec(latestPhotoSpec)");
+});
+
+test("admin export adjustment changes write local last-used state before debounced database sync", () => {
+  const adminSource = source("src/components/leaderboard/LeaderboardAdminManager.tsx");
+  const handlerStart = adminSource.indexOf("function handleExportPhotoAdjustmentChange");
+  const resetStart = adminSource.indexOf("function handleExportPhotoAdjustmentReset", handlerStart);
+  const handlerBlock = adminSource.slice(handlerStart, resetStart);
+
+  expect(handlerStart).toBeGreaterThan(-1);
+  expect(handlerBlock).toContain("writeLocalExportPhotoAdjustment");
+  expect(handlerBlock).toMatch(/writeLocalExportPhotoAdjustment[\s\S]*scheduleExportPhotoAdjustmentAutosave/);
 });

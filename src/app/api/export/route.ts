@@ -4,6 +4,7 @@ import { join } from "node:path";
 import { NextRequest } from "next/server";
 import chromium from "@sparticuz/chromium-min";
 import puppeteer, { type Browser, type Page } from "puppeteer-core";
+import { requireAdminAuth } from "@/lib/supabase/auth-server";
 import { createExportJob, deleteExportJob } from "@/lib/leaderboard/export-jobs";
 import { ExportRequestSchema } from "@/lib/leaderboard/schema";
 import { OUTPUT_DIMENSIONS } from "@/lib/leaderboard/types";
@@ -157,6 +158,11 @@ async function hideNextDevIndicators(page: Page) {
 }
 
 export async function POST(request: NextRequest) {
+  const unauthorized = await requireAdminAuth();
+  if (unauthorized) {
+    return unauthorized;
+  }
+
   const body = await request.json().catch(() => null);
   const parsed = ExportRequestSchema.safeParse(body);
 

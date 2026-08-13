@@ -6,23 +6,105 @@ function athleteDatabaseSource() {
   return fs.readFileSync(path.join(process.cwd(), "src/components/athletes/AthleteDatabaseApp.tsx"), "utf8");
 }
 
-test("athlete database page uses one centered database card instead of a permanent side form", () => {
+test("admin anggota page uses domain copy instead of database dashboard language", () => {
   const source = athleteDatabaseSource();
 
-  expect(source).not.toContain("lg:grid-cols-[420px_1fr]");
-  expect(source).not.toContain("<aside");
-  expect(source).toContain("max-w-5xl");
-  expect(source).toContain("Create Athlete");
-  expect(source).toContain("AthleteFormModal");
+  expect(source).toContain("Kelola data anggota dan akses akun komunitas.");
+  expect(source).toContain("Tambah anggota");
+  expect(source).toContain("Cari nama atau username");
+  expect(source).toContain("Import anggota");
+  expect(source).not.toContain("Athlete Database");
+  expect(source).not.toContain("Create Athlete");
+  expect(source).not.toContain("Search athlete");
+  expect(source).not.toContain("normalized_name:");
+  expect(source).not.toContain("Storage ready");
+  expect(source).not.toContain("Storage initialized");
+  expect(source).not.toContain("Photo coverage");
+  expect(source).not.toContain("No photos");
 });
 
-test("create and edit flows open the athlete form modal", () => {
+test("admin anggota page mirrors the kegiatan admin panel surface style", () => {
   const source = athleteDatabaseSource();
 
-  expect(source).toContain("setFormOpen(true)");
-  expect(source).toContain("openCreateModal");
-  expect(source).toContain("openEditModal");
-  expect(source).toContain('aria-label="Create athlete"');
+  expect(source).toContain('import { Button } from "@/components/ui/Button";');
+  expect(source).toContain('import { Input } from "@/components/ui/Input";');
+  expect(source).toContain('className={cn("grid w-full min-w-0 gap-5", embedded ? "" : "min-h-screen content-start")}');
+  expect(source).toContain("rounded-[1.35rem] border border-secondary-sand/60 bg-white p-5 shadow-[0_14px_34px_rgb(90,46,23,0.06)] dark:border-zinc-800 dark:bg-zinc-900");
+  expect(source).toContain("border-b border-secondary-sand/60 pb-5 dark:border-zinc-800 md:flex-row md:items-center md:justify-between");
+  expect(source).toContain("Direktori Komunitas");
+  expect(source).toContain("<Button aria-label=\"Tambah anggota\" onClick={openCreateModal}>");
+  expect(source).toContain('<Button onClick={() => setImportOpen(true)} variant="secondary">');
+  expect(source).toContain("<Input");
+});
+
+test("member list is optimized for scanning and keeps secondary actions in a menu", () => {
+  const source = athleteDatabaseSource();
+  const listStart = source.indexOf('data-testid="athlete-database-list"');
+  const listBlock = source.slice(listStart);
+
+  expect(source).toContain("selectedAthlete");
+  expect(source).toContain("openMenuAthleteId");
+  expect(source).toContain('data-testid="member-list-row"');
+  expect(source).toContain('aria-label={`Menu ${athlete.name}`}');
+  expect(source).toContain("Lihat profil");
+  expect(source).toContain("Edit anggota");
+  expect(source).toContain("Kelola akun");
+  expect(source).toContain("Kelola foto");
+  expect(source).toContain("Hapus anggota");
+  expect(source).not.toContain("expandedAthleteId");
+  expect(source).not.toContain("ChevronDown");
+  expect(source).not.toContain("ChevronUp");
+  expect(listBlock).not.toContain("AthletePhotoSummary");
+});
+
+test("detail drawer separates profile, photo, and account actions", () => {
+  const source = athleteDatabaseSource();
+
+  expect(source).toContain("function MemberDetailDrawer");
+  expect(source).toContain('data-testid="member-detail-drawer"');
+  expect(source).toContain("Data anggota");
+  expect(source).toContain("Foto anggota");
+  expect(source).toContain("Akun & akses");
+  expect(source).toContain("onManageAccount");
+  expect(source).toContain("onManagePhotos");
+  expect(source).not.toContain('data-testid="athlete-detail-drawer"');
+});
+
+test("account management supports username update and password reset without reading old password", () => {
+  const source = athleteDatabaseSource();
+
+  expect(source).toContain("function AccountManagementModal");
+  expect(source).toContain("listAthleteRoles");
+  expect(source).toContain("updateAthleteRole");
+  expect(source).toContain("updateAthleteAccount");
+  expect(source).toContain("resetAthletePassword");
+  expect(source).toContain("Username digunakan untuk masuk ke akun anggota.");
+  expect(source).toContain("Password saat ini tidak dapat dilihat oleh admin.");
+  expect(source).toContain("Akun anggota belum siap dipakai.");
+  expect(source).toContain("Atur ulang password");
+  expect(source).toContain("onRoleChange");
+  expect(source).toContain("Simpan peran akun");
+  expect(source).toContain("function PasswordResetConfirmationDialog");
+  expect(source).toContain("Password berhasil diubah.");
+  expect(source).not.toContain("Akun anggota belum terhubung Auth.");
+  expect(source).not.toContain("Akun Auth atlet tidak ditemukan.");
+  expect(source).not.toContain('href="/admin?tab=roles"');
+  expect(source).not.toContain("Buka Peran");
+  expect(source).not.toContain("Show password");
+  expect(source).not.toContain("password lama");
+  expect(source).not.toContain("localStorage");
+  expect(source).not.toContain("sessionStorage");
+});
+
+test("delete member uses an Indonesian confirmation dialog instead of window confirm", () => {
+  const source = athleteDatabaseSource();
+
+  expect(source).toContain("function DeleteMemberDialog");
+  expect(source).toContain("Hapus anggota?");
+  expect(source).toContain("Profil dan akses anggota ini akan dilepas dari komunitas.");
+  expect(source).toContain("deleteTarget");
+  expect(source).not.toContain("sesuai aturan sistem");
+  expect(source).not.toContain("window.confirm");
 });
 
 test("image upload opens crop modal and defers Supabase upload until save", () => {
@@ -47,77 +129,11 @@ test("image upload opens crop modal and defers Supabase upload until save", () =
   expect(saveBlock).toContain('uploadAthleteImage(file, "athlete-podium")');
 });
 
-test("athlete save flow shows a toast for success and failure", () => {
+test("photo save errors surface actionable upload and session messages", () => {
   const source = athleteDatabaseSource();
 
-  expect(source).toContain("interface AthleteToast");
-  expect(source).toContain("const [toast, setToast]");
-  expect(source).toContain("function showToast");
-  expect(source).toContain('data-testid="athlete-save-toast"');
-  expect(source).toContain('role="status"');
-  expect(source).toContain('showToast("Atlet berhasil disimpan", "success")');
-  expect(source).toContain('showToast(`Gagal menyimpan atlet: ${message}`, "error")');
-});
-
-test("athlete database rows use a hybrid list with expandable photo details", () => {
-  const source = athleteDatabaseSource();
-  const listStart = source.indexOf('data-testid="athlete-database-list"');
-  const listBlock = source.slice(listStart);
-
-  expect(source).toContain("expandedAthleteId");
-  expect(source).toContain("AthletePhotoSummary");
-  expect(source).toContain("AthleteDetailDrawer");
-  expect(source).toContain("photoCoverageForAthlete");
-  expect(source).toContain("SPORT_PODIUM_PHOTO_OPTIONS");
-  expect(source).toContain('data-testid="athlete-detail-drawer"');
-  expect(source).toContain('aria-label={`Expand ${athlete.name} photo details`}');
-  expect(source).toContain('aria-label={`Collapse ${athlete.name} photo details`}');
-  expect(listBlock).not.toContain("grid-cols-[64px_minmax(180px,1fr)_420px_96px]");
-  expect(listBlock).not.toContain("<span>Photos</span>");
-  expect(listBlock).not.toContain("<span>Download</span>");
-  expect(listBlock).not.toContain("handleDownloadPhoto");
-  expect(source).not.toContain("max-w-14 truncate");
-});
-
-test("athlete detail drawer previews photos and opens the existing edit modal", () => {
-  const source = athleteDatabaseSource();
-  const drawerStart = source.indexOf("function AthleteDetailDrawer");
-  const drawerEnd = source.indexOf("function ImportAthleteModal", drawerStart);
-  const drawerBlock = source.slice(drawerStart, drawerEnd);
-
-  expect(drawerStart).toBeGreaterThan(-1);
-  expect(drawerBlock).toContain("Manage Photos");
-  expect(drawerBlock).toContain("onManage");
-  expect(drawerBlock).toContain("Main podium");
-  expect(drawerBlock).toContain("Custom");
-  expect(drawerBlock).toContain("Default");
-  expect(source).toContain("onManage={() => openEditModal(athlete)}");
-});
-
-test("athlete edit modal keeps photo download and delete actions on each photo card", () => {
-  const source = athleteDatabaseSource();
-  const modalStart = source.indexOf("function AthleteFormModal");
-  const modalEnd = source.indexOf("function CropImageModal", modalStart);
-  const modalBlock = source.slice(modalStart, modalEnd);
-
-  expect(source).toContain("PhotoActionCard");
-  expect(source).toContain("handleClearPhoto");
-  expect(source).toContain("handleClearSportPodiumPhoto");
-  expect(source).toContain('aria-label={`${title} download`}');
-  expect(source).toContain('aria-label={`${title} delete`}');
-  expect(source).toContain("<Download");
-  expect(source).toContain("<Trash2");
-  expect(modalBlock).not.toContain("Fallback");
-  expect(modalBlock).not.toContain("podium URL");
-  expect(modalBlock).not.toContain("Profile photo URL");
-});
-
-test("initial athlete database load is scheduled directly from the effect", () => {
-  const source = athleteDatabaseSource();
-  const effectStart = source.indexOf("void refreshStorageStatus()");
-  const effectBlock = source.slice(Math.max(0, effectStart - 160), effectStart + 180);
-
-  expect(effectBlock).toContain("void refreshStorageStatus()");
-  expect(effectBlock).toContain('void refreshAthletes("")');
-  expect(effectBlock).not.toContain("queueMicrotask");
+  expect(source).toContain("Sesi admin berakhir. Silakan login ulang.");
+  expect(source).toContain("Akses admin diperlukan untuk menyimpan perubahan.");
+  expect(source).toContain("Foto harus berupa PNG, JPEG, atau WebP.");
+  expect(source).toContain("Ukuran foto terlalu besar setelah dipotong.");
 });

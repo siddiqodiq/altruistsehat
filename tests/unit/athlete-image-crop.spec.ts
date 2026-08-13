@@ -3,6 +3,7 @@ import {
   ATHLETE_IMAGE_CROP_PRESETS,
   centeredCropFrame,
   clampCropFrame,
+  cropOutputDimensionsForFrame,
   outputFilename,
 } from "../../src/lib/athletes/image-crop";
 
@@ -60,4 +61,20 @@ test("outputFilename preserves the athlete image intent with webp extension", ()
   expect(outputFilename("Utha Profile.JPG", "profile")).toBe("utha-profile-profile.webp");
   expect(outputFilename("Podium Hero.png", "podium")).toBe("podium-hero-podium.webp");
   expect(outputFilename("Podium Hero.png", "podium", { hasTransparency: true })).toBe("podium-hero-podium-cutout.webp");
+});
+
+test("outputFilename follows the browser encoder fallback mime type", () => {
+  expect(outputFilename("Runner.JPG", "podium", { mimeType: "image/jpeg" })).toBe("runner-podium.jpg");
+  expect(outputFilename("Cutout.png", "podium", { hasTransparency: true, mimeType: "image/png" })).toBe("cutout-podium-cutout.png");
+});
+
+test("cropOutputDimensionsForFrame scales upload output up for large sources without exceeding safe caps", () => {
+  expect(cropOutputDimensionsForFrame(ATHLETE_IMAGE_CROP_PRESETS.profile, { x: 0, y: 0, width: 1800, height: 1800 })).toEqual({
+    width: 1024,
+    height: 1024,
+  });
+  expect(cropOutputDimensionsForFrame(ATHLETE_IMAGE_CROP_PRESETS.podium, { x: 0, y: 0, width: 2500, height: 4000 })).toEqual({
+    width: 1600,
+    height: 2560,
+  });
 });

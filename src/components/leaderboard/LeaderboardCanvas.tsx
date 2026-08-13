@@ -1,8 +1,10 @@
 import { calculateWeeklyComparison, formatMetricDisplayParts, formatMetricValue, resolveMetricTotal } from "@/lib/leaderboard/metrics";
 import { resolveSportPodiumPhotoUrl } from "@/lib/athletes/sport-podium-photos";
+import { resolveUsableAthletePhotoUrl } from "@/lib/athletes/photo-url";
 import {
   compactCutoutBackdropStyle,
   compactPhotoForegroundAdjustmentStyle,
+  fullFramePhotoAdjustmentStyle,
   resolveAthletePhotoAdjustment,
 } from "@/lib/leaderboard/photo-adjustments";
 import { buildLeaderboardRows } from "@/lib/leaderboard/ranking";
@@ -179,23 +181,8 @@ function splitMetricValue(
   return { number: parts.primary, unit: parts.accent };
 }
 
-function normalizedImageUrl(value?: string) {
-  if (!value || typeof value !== "string") {
-    return undefined;
-  }
-
-  const trimmed = value.trim();
-  return trimmed ? trimmed : undefined;
-}
-
 function resolveAthleteImage(...values: Array<string | undefined>) {
-  for (const value of values) {
-    const normalized = normalizedImageUrl(value);
-    if (normalized) {
-      return normalized;
-    }
-  }
-  return undefined;
+  return resolveUsableAthletePhotoUrl(...values);
 }
 
 function resolveAthletePodiumImage(athlete: RankedAthlete, spec: LeaderboardSpec) {
@@ -231,18 +218,8 @@ function photoAdjustmentData(adjustment: ExportPhotoAdjustment) {
   return `zoom:${adjustment.zoom.toFixed(2)};x:${adjustment.x};y:${adjustment.y}`;
 }
 
-function adjustmentObjectPosition(adjustment: ExportPhotoAdjustment) {
-  const x = Math.min(100, Math.max(0, 50 + adjustment.x));
-  const y = Math.min(100, Math.max(0, 50 + adjustment.y));
-  return `${x}% ${y}%`;
-}
-
 function podiumPhotoAdjustmentStyle(adjustment: ExportPhotoAdjustment) {
-  return {
-    objectPosition: adjustmentObjectPosition(adjustment),
-    transform: `scale(${1.04 * Math.max(1, adjustment.zoom)})`,
-    transformOrigin: "center center",
-  };
+  return fullFramePhotoAdjustmentStyle(adjustment, 1.04);
 }
 
 type StoryPodiumMedalTone = "gold" | "silver" | "bronze";

@@ -66,9 +66,14 @@ test("resolveAthletePhotoAdjustment falls back to layout defaults for athletes w
 
 test("clampExportPhotoAdjustment keeps persisted presets inside the export-safe range", () => {
   expect(clampExportPhotoAdjustment({ zoom: 9, x: -99, y: 99 })).toEqual({
-    zoom: 2.2,
-    x: -40,
-    y: 40,
+    zoom: 5,
+    x: -99,
+    y: 99,
+  });
+  expect(clampExportPhotoAdjustment({ zoom: 0.1, x: -300, y: 300 })).toEqual({
+    zoom: 0.5,
+    x: -150,
+    y: 150,
   });
 });
 
@@ -96,17 +101,30 @@ test("full frame photo adjustment style lets compact photos fill the frame", () 
     transform: "scale(1.15)",
     transformOrigin: "center center",
   });
-  expect(fullFramePhotoAdjustmentStyle({ zoom: 0.8, x: -80, y: 80 })).toEqual({
-    objectPosition: "0% 100%",
+  expect(fullFramePhotoAdjustmentStyle({ zoom: 0.8, x: -40, y: 40 })).toEqual({
+    objectPosition: "10% 90%",
     transform: "scale(1)",
     transformOrigin: "center center",
   });
 });
 
+test("full frame photo adjustment style preserves old positions and adds extra translate past the old edge", () => {
+  expect(fullFramePhotoAdjustmentStyle({ zoom: 1.4, x: 120, y: -110 })).toEqual({
+    objectPosition: "90% 10%",
+    transform: "translate(80%, -70%) scale(1.4)",
+    transformOrigin: "center center",
+  });
+});
+
 test("compact foreground photo style allows flexible zoom-out over gradient backplates", () => {
-  expect(compactPhotoForegroundAdjustmentStyle({ zoom: 0.8, x: -12, y: 6 })).toEqual({
+  expect(compactPhotoForegroundAdjustmentStyle({ zoom: 0.5, x: -12, y: 6 })).toEqual({
     objectPosition: "50% 50%",
-    transform: "translate(-12%, 6%) scale(0.8)",
+    transform: "translate(-12%, 6%) scale(0.5)",
+    transformOrigin: "center center",
+  });
+  expect(compactPhotoForegroundAdjustmentStyle({ zoom: 5, x: 145, y: -150 })).toEqual({
+    objectPosition: "50% 50%",
+    transform: "translate(145%, -150%) scale(5)",
     transformOrigin: "center center",
   });
 });

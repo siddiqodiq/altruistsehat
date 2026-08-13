@@ -130,6 +130,41 @@ test("buildBumpChartData keeps full weekly top 10 union with null gaps", () => {
   expect(ranksFor("M")).toEqual([null, null, 10]);
 });
 
+test("buildBumpChartData includes every entered athlete by default", () => {
+  const athletes = Array.from({ length: 12 }, (_, index) => [`Athlete ${index + 1}`, 120 - index] as [string, number]);
+  const data = buildBumpChartData([
+    snapshot("30", athletes),
+    snapshot("31", athletes.map(([name, value]) => [name, value + 5] as [string, number])),
+  ]);
+
+  expect(data.maxRank).toBe(12);
+  expect(data.series).toHaveLength(12);
+  expect(data.series.at(-1)).toMatchObject({
+    name: "Athlete 12",
+    latestRank: 12,
+  });
+  expect(data.series.at(-1)?.points.map((point) => point.rank)).toEqual([12, 12]);
+});
+
+test("buildBumpChartData defaults to the latest four weeks", () => {
+  const data = buildBumpChartData(
+    Array.from({ length: 6 }, (_, index) =>
+      snapshot(String(index + 1), [["A", 100 + index]], `${index + 1} Jul 2026 – ${index + 1} Jul 2026`),
+    ),
+  );
+
+  expect(data.weeks.map((week) => week.label)).toEqual(["W3", "W4", "W5", "W6"]);
+});
+
+test("buildBumpChartData can still show a longer explicit range", () => {
+  const data = buildBumpChartData(
+    Array.from({ length: 6 }, (_, index) => snapshot(String(index + 1), [["A", 100 + index]])),
+    { maxWeeks: 6 },
+  );
+
+  expect(data.weeks.map((week) => week.label)).toEqual(["W1", "W2", "W3", "W4", "W5", "W6"]);
+});
+
 
 test("buildBumpChartData adds month and readable period metadata", () => {
   const data = buildBumpChartData([

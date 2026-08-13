@@ -56,7 +56,7 @@ test("localExportPhotoAdjustmentsForAthlete falls back to normalized name when n
   });
 });
 
-test("specWithLocalExportPhotoAdjustments uses local fallback without overriding database presets", () => {
+test("specWithLocalExportPhotoAdjustments lets last-used local adjustments override database presets", () => {
   const storage = memoryStorage({
     [EXPORT_PHOTO_ADJUSTMENTS_STORAGE_KEY]: JSON.stringify({
       "database-rakha": {
@@ -93,6 +93,6 @@ test("specWithLocalExportPhotoAdjustments uses local fallback without overriding
 
   expect(hydrated.athletes[0].podiumPhotoAdjustments).toEqual({
     top3: { zoom: 1.1, x: 2, y: 3 },
-    top5: { zoom: 1.8, x: -5, y: 6 },
+    top5: { zoom: 1.4, x: 12, y: -8 },
   });
 });

@@ -21,7 +21,9 @@ export interface AthleteImageCropPreset {
   aspectRatio: number;
   outputWidth: number;
   outputHeight: number;
-  mimeType: "image/webp";
+  maxOutputWidth: number;
+  maxOutputHeight: number;
+  mimeType: AthleteImageOutputMimeType;
   quality: number;
   frameClassName: string;
 }
@@ -32,6 +34,14 @@ export interface CroppedAthleteImage {
   previewUrl: string;
 }
 
+export type AthleteImageOutputMimeType = "image/jpeg" | "image/png" | "image/webp";
+
+const OUTPUT_MIME_EXTENSIONS: Record<AthleteImageOutputMimeType, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+};
+
 export const ATHLETE_IMAGE_CROP_PRESETS: Record<AthleteImageKind, AthleteImageCropPreset> = {
   profile: {
     kind: "profile",
@@ -40,6 +50,8 @@ export const ATHLETE_IMAGE_CROP_PRESETS: Record<AthleteImageKind, AthleteImageCr
     aspectRatio: 1,
     outputWidth: 512,
     outputHeight: 512,
+    maxOutputWidth: 1024,
+    maxOutputHeight: 1024,
     mimeType: "image/webp",
     quality: 0.9,
     frameClassName: "rounded-full",
@@ -51,6 +63,8 @@ export const ATHLETE_IMAGE_CROP_PRESETS: Record<AthleteImageKind, AthleteImageCr
     aspectRatio: 5 / 8,
     outputWidth: 800,
     outputHeight: 1280,
+    maxOutputWidth: 1600,
+    maxOutputHeight: 2560,
     mimeType: "image/webp",
     quality: 0.92,
     frameClassName: "rounded-[8px]",
@@ -97,7 +111,11 @@ export function clampCropFrame(frame: CropFrame, source: ImageDimensions): CropF
   };
 }
 
-export function outputFilename(inputName: string, kind: AthleteImageKind, options: { hasTransparency?: boolean } = {}): string {
+export function outputFilename(
+  inputName: string,
+  kind: AthleteImageKind,
+  options: { hasTransparency?: boolean; mimeType?: AthleteImageOutputMimeType } = {},
+): string {
   const withoutExtension = inputName.replace(/\.[^.]+$/, "");
   const slug =
     withoutExtension
@@ -105,8 +123,27 @@ export function outputFilename(inputName: string, kind: AthleteImageKind, option
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "") || "athlete-image";
   const transparencySuffix = options.hasTransparency && kind === "podium" ? "-cutout" : "";
+  const extension = OUTPUT_MIME_EXTENSIONS[options.mimeType ?? "image/webp"];
 
-  return `${slug}-${kind}${transparencySuffix}.webp`;
+  return `${slug}-${kind}${transparencySuffix}.${extension}`;
+}
+
+export function cropOutputDimensionsForFrame(preset: AthleteImageCropPreset, frame: Pick<CropFrame, "width" | "height">): ImageDimensions {
+  const frameWidth = Math.max(1, Math.round(frame.width));
+  const frameHeight = Math.max(1, Math.round(frame.height));
+  const frameAspect = frameWidth / frameHeight;
+  const sourceWidth =
+    frameAspect >= preset.aspectRatio
+      ? Math.max(preset.outputWidth, frameWidth)
+      : Math.max(preset.outputWidth, Math.round(frameHeight * preset.aspectRatio));
+  const sourceHeight = Math.round(sourceWidth / preset.aspectRatio);
+  const capScale = Math.min(1, preset.maxOutputWidth / sourceWidth, preset.maxOutputHeight / sourceHeight);
+  const width = Math.max(preset.outputWidth, Math.round(sourceWidth * capScale));
+
+  return {
+    width,
+    height: Math.max(preset.outputHeight, Math.round(width / preset.aspectRatio)),
+  };
 }
 
 export function readImageFile(file: File): Promise<{ image: HTMLImageElement; dataUrl: string; dimensions: ImageDimensions }> {
@@ -141,8 +178,9 @@ export function cropImageFile(
 ): Promise<CroppedAthleteImage> {
   return new Promise((resolve, reject) => {
     const canvas = document.createElement("canvas");
-    canvas.width = preset.outputWidth;
-    canvas.height = preset.outputHeight;
+    const outputDimensions = cropOutputDimensionsForFrame(preset, frame);
+    canvas.width = outputDimensions.width;
+    canvas.height = outputDimensions.height;
 
     const context = canvas.getContext("2d");
     if (!context) {
@@ -158,11 +196,28 @@ export function cropImageFile(
       frame.height,
       0,
       0,
-      preset.outputWidth,
-      preset.outputHeight,
+      outputDimensions.width,
+      outputDimensions.height,
     );
-    const hasTransparency = canvasHasTransparency(context, preset.outputWidth, preset.outputHeight);
+    const hasTransparency = canvasHasTransparency(context, outputDimensions.width, outputDimensions.height);
 
+    void encodeCanvasForAthleteImage(canvas, preset, hasTransparency)
+      .then(({ blob, mimeType }) => {
+        const croppedFile = new File([blob], outputFilename(file.name, preset.kind, { hasTransparency, mimeType }), {
+          type: mimeType,
+        });
+        resolve({
+          file: croppedFile,
+          hasTransparency,
+          previewUrl: URL.createObjectURL(blob),
+        });
+      })
+      .catch(reject);
+  });
+}
+
+function canvasToBlob(canvas: HTMLCanvasElement, mimeType: AthleteImageOutputMimeType, quality: number): Promise<Blob> {
+  return new Promise((resolve, reject) => {
     canvas.toBlob(
       (blob) => {
         if (!blob) {
@@ -170,19 +225,51 @@ export function cropImageFile(
           return;
         }
 
-        const croppedFile = new File([blob], outputFilename(file.name, preset.kind, { hasTransparency }), {
-          type: preset.mimeType,
-        });
-        resolve({
-          file: croppedFile,
-          hasTransparency,
-          previewUrl: URL.createObjectURL(blob),
-        });
+        resolve(blob);
       },
-      preset.mimeType,
-      preset.quality,
+      mimeType,
+      quality,
     );
   });
+}
+
+function normalizeOutputMimeType(value: string): AthleteImageOutputMimeType | undefined {
+  if (value === "image/jpeg" || value === "image/png" || value === "image/webp") {
+    return value;
+  }
+
+  return undefined;
+}
+
+async function encodeCanvasForAthleteImage(
+  canvas: HTMLCanvasElement,
+  preset: AthleteImageCropPreset,
+  hasTransparency: boolean,
+): Promise<{ blob: Blob; mimeType: AthleteImageOutputMimeType }> {
+  const preferredBlob = await canvasToBlob(canvas, preset.mimeType, preset.quality);
+  const preferredMimeType = normalizeOutputMimeType(preferredBlob.type);
+
+  if (preferredMimeType === preset.mimeType) {
+    return { blob: preferredBlob, mimeType: preferredMimeType };
+  }
+
+  if (hasTransparency) {
+    if (preferredMimeType === "image/png") {
+      return { blob: preferredBlob, mimeType: preferredMimeType };
+    }
+
+    const pngBlob = await canvasToBlob(canvas, "image/png", preset.quality);
+    return {
+      blob: pngBlob,
+      mimeType: normalizeOutputMimeType(pngBlob.type) ?? "image/png",
+    };
+  }
+
+  const jpegBlob = await canvasToBlob(canvas, "image/jpeg", Math.min(0.92, preset.quality));
+  return {
+    blob: jpegBlob,
+    mimeType: normalizeOutputMimeType(jpegBlob.type) ?? preferredMimeType ?? "image/png",
+  };
 }
 
 function canvasHasTransparency(context: CanvasRenderingContext2D, width: number, height: number): boolean {

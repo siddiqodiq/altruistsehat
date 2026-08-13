@@ -24,11 +24,15 @@ export interface BumpChartSeries {
   key: string;
   name: string;
   metric: MetricType;
+  athleteId?: string;
   latestRank: number;
   latestValue: number;
+  normalizedName?: string;
   previousRank?: number;
+  profilePhotoUrl?: string;
   rankDelta: number;
   points: BumpChartPoint[];
+  username?: string;
 }
 
 export interface BumpChartMover {
@@ -185,8 +189,7 @@ export function buildBumpChartData(
   snapshots: LeaderboardWeekSnapshot[],
   options: { maxWeeks?: number; maxRank?: number } = {},
 ): BumpChartData {
-  const maxWeeks = options.maxWeeks ?? 8;
-  const maxRank = options.maxRank ?? 10;
+  const maxWeeks = options.maxWeeks ?? 4;
   const weeks = snapshots
     .filter((snapshot) => snapshot.spec.athletes.length)
     .slice()
@@ -200,19 +203,35 @@ export function buildBumpChartData(
     }));
 
   const latest = weeks[weeks.length - 1]?.snapshot;
+  const maxRank = options.maxRank ?? Math.max(1, ...weeks.map((week) => week.snapshot.spec.athletes.length));
   if (!latest) {
     return { weeks, series: [], maxRank, metric: "distance_km", topMovers: [], biggestDrops: [] };
   }
 
   const rankedWeeks = weeks.map((week) => {
     const rows = rankedRowsForSnapshot(week.snapshot, maxRank);
-    const rankByKey = new Map<string, { rank: number; value: number; name: string }>();
+    const rankByKey = new Map<
+      string,
+      {
+        athleteId?: string;
+        name: string;
+        normalizedName?: string;
+        profilePhotoUrl?: string;
+        rank: number;
+        username?: string;
+        value: number;
+      }
+    >();
 
     rows.forEach(({ key, athlete }) => {
       rankByKey.set(key, {
+        athleteId: athlete.athleteId,
         rank: athlete.rank,
         value: athlete.value,
         name: athlete.name,
+        normalizedName: athlete.normalizedName,
+        profilePhotoUrl: athlete.profilePhotoUrl ?? athlete.avatarDataUrl,
+        username: athlete.username,
       });
     });
 
@@ -221,6 +240,15 @@ export function buildBumpChartData(
 
   const athleteOrder = new Map<string, number>();
   const athleteNames = new Map<string, string>();
+  const athleteProfiles = new Map<
+    string,
+    {
+      athleteId?: string;
+      normalizedName?: string;
+      profilePhotoUrl?: string;
+      username?: string;
+    }
+  >();
   const firstSeenRank = new Map<string, number>();
 
   rankedWeeks.forEach(({ rows }, weekIndex) => {
@@ -231,6 +259,12 @@ export function buildBumpChartData(
       }
 
       athleteNames.set(key, athlete.name);
+      athleteProfiles.set(key, {
+        athleteId: athlete.athleteId,
+        normalizedName: athlete.normalizedName,
+        profilePhotoUrl: athlete.profilePhotoUrl ?? athlete.avatarDataUrl,
+        username: athlete.username,
+      });
     });
   });
 
@@ -250,16 +284,27 @@ export function buildBumpChartData(
     const latestPoint = latestWeekRanks.get(key);
     const previousPoint = previousWeekRanks.get(key);
     const lastVisiblePoint = [...points].reverse().find((point) => point.rank !== null);
+    const profile = {
+      ...athleteProfiles.get(key),
+      athleteId: latestPoint?.athleteId ?? athleteProfiles.get(key)?.athleteId,
+      normalizedName: latestPoint?.normalizedName ?? athleteProfiles.get(key)?.normalizedName,
+      profilePhotoUrl: latestPoint?.profilePhotoUrl ?? athleteProfiles.get(key)?.profilePhotoUrl,
+      username: latestPoint?.username ?? athleteProfiles.get(key)?.username,
+    };
 
     return {
       key,
       name: latestPoint?.name ?? athleteNames.get(key) ?? key,
       metric: latest.spec.metric,
+      athleteId: profile.athleteId,
       latestRank: latestPoint?.rank ?? maxRank + 1,
       latestValue: latestPoint?.value ?? lastVisiblePoint?.value ?? 0,
+      normalizedName: profile.normalizedName,
       previousRank: latestPoint && previousPoint ? previousPoint.rank : undefined,
+      profilePhotoUrl: profile.profilePhotoUrl,
       rankDelta: latestPoint && previousPoint ? previousPoint.rank - latestPoint.rank : 0,
       points,
+      username: profile.username,
     } satisfies BumpChartSeries;
   });
 

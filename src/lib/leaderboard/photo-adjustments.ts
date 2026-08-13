@@ -27,6 +27,14 @@ const DEFAULT_EXPORT_PHOTO_ADJUSTMENT: ExportPhotoAdjustment = {
   y: 0,
 };
 
+export const EXPORT_PHOTO_ADJUSTMENT_LIMITS = {
+  legacyOffsetMax: 40,
+  offsetMax: 150,
+  offsetMin: -150,
+  zoomMax: 5,
+  zoomMin: 0.5,
+} as const;
+
 type CompactExportLayoutMode = Exclude<ExportLayoutMode, "podiumTop10">;
 
 const COMPACT_EXPORT_ATHLETE_COUNTS: Record<CompactExportLayoutMode, number> = {
@@ -55,9 +63,18 @@ function finiteNumber(value: unknown, fallback: number) {
 
 export function clampExportPhotoAdjustment(adjustment: Partial<ExportPhotoAdjustment> = {}): ExportPhotoAdjustment {
   return {
-    zoom: Math.min(2.2, Math.max(0.8, finiteNumber(adjustment.zoom, DEFAULT_EXPORT_PHOTO_ADJUSTMENT.zoom))),
-    x: Math.min(40, Math.max(-40, finiteNumber(adjustment.x, DEFAULT_EXPORT_PHOTO_ADJUSTMENT.x))),
-    y: Math.min(40, Math.max(-40, finiteNumber(adjustment.y, DEFAULT_EXPORT_PHOTO_ADJUSTMENT.y))),
+    zoom: Math.min(
+      EXPORT_PHOTO_ADJUSTMENT_LIMITS.zoomMax,
+      Math.max(EXPORT_PHOTO_ADJUSTMENT_LIMITS.zoomMin, finiteNumber(adjustment.zoom, DEFAULT_EXPORT_PHOTO_ADJUSTMENT.zoom)),
+    ),
+    x: Math.min(
+      EXPORT_PHOTO_ADJUSTMENT_LIMITS.offsetMax,
+      Math.max(EXPORT_PHOTO_ADJUSTMENT_LIMITS.offsetMin, finiteNumber(adjustment.x, DEFAULT_EXPORT_PHOTO_ADJUSTMENT.x)),
+    ),
+    y: Math.min(
+      EXPORT_PHOTO_ADJUSTMENT_LIMITS.offsetMax,
+      Math.max(EXPORT_PHOTO_ADJUSTMENT_LIMITS.offsetMin, finiteNumber(adjustment.y, DEFAULT_EXPORT_PHOTO_ADJUSTMENT.y)),
+    ),
   };
 }
 
@@ -89,28 +106,48 @@ export function compactPresetPreviewHeightPx(
   return Math.round((rowHeight / topOneRowHeight) * maxHeightPx);
 }
 
+function legacyObjectPositionOffset(value: number) {
+  return Math.min(
+    EXPORT_PHOTO_ADJUSTMENT_LIMITS.legacyOffsetMax,
+    Math.max(-EXPORT_PHOTO_ADJUSTMENT_LIMITS.legacyOffsetMax, finiteNumber(value, 0)),
+  );
+}
+
 function adjustedObjectPosition(adjustment: ExportPhotoAdjustment): string {
-  const x = Math.min(100, Math.max(0, 50 + adjustment.x));
-  const y = Math.min(100, Math.max(0, 50 + adjustment.y));
+  const x = 50 + legacyObjectPositionOffset(adjustment.x);
+  const y = 50 + legacyObjectPositionOffset(adjustment.y);
 
   return `${x}% ${y}%`;
 }
 
 function compactPhotoTranslate(adjustment: ExportPhotoAdjustment): string {
-  const x = Math.min(40, Math.max(-40, finiteNumber(adjustment.x, DEFAULT_EXPORT_PHOTO_ADJUSTMENT.x)));
-  const y = Math.min(40, Math.max(-40, finiteNumber(adjustment.y, DEFAULT_EXPORT_PHOTO_ADJUSTMENT.y)));
+  const clamped = clampExportPhotoAdjustment(adjustment);
+
+  return `translate(${clamped.x}%, ${clamped.y}%)`;
+}
+
+function extraFullFrameTranslate(adjustment: ExportPhotoAdjustment): string | undefined {
+  const clamped = clampExportPhotoAdjustment(adjustment);
+  const x = clamped.x - legacyObjectPositionOffset(clamped.x);
+  const y = clamped.y - legacyObjectPositionOffset(clamped.y);
+  if (x === 0 && y === 0) {
+    return undefined;
+  }
 
   return `translate(${x}%, ${y}%)`;
 }
 
-export function fullFramePhotoAdjustmentStyle(adjustment: ExportPhotoAdjustment): {
+export function fullFramePhotoAdjustmentStyle(adjustment: ExportPhotoAdjustment, scaleMultiplier = 1): {
   objectPosition: string;
   transform: string;
   transformOrigin: "center center";
 } {
+  const translate = extraFullFrameTranslate(adjustment);
+  const scale = `scale(${scaleMultiplier * Math.max(1, clampExportPhotoAdjustment(adjustment).zoom)})`;
+
   return {
     objectPosition: adjustedObjectPosition(adjustment),
-    transform: `scale(${Math.max(1, adjustment.zoom)})`,
+    transform: translate ? `${translate} ${scale}` : scale,
     transformOrigin: "center center",
   };
 }
@@ -120,7 +157,7 @@ export function compactPhotoForegroundAdjustmentStyle(adjustment: ExportPhotoAdj
   transform: string;
   transformOrigin: "center center";
 } {
-  const zoom = Math.min(2.2, Math.max(0.8, finiteNumber(adjustment.zoom, DEFAULT_EXPORT_PHOTO_ADJUSTMENT.zoom)));
+  const zoom = clampExportPhotoAdjustment(adjustment).zoom;
 
   return {
     objectPosition: "50% 50%",

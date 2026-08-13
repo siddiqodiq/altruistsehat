@@ -3,6 +3,7 @@ import { resolveMetricTotal } from "./metrics";
 import { clampExportPhotoAdjustment, DEFAULT_EXPORT_PHOTO_ADJUSTMENTS } from "./photo-adjustments";
 import { buildLeaderboardRows } from "./ranking";
 import { derivePreviousWeekTotal } from "./templates";
+import { normalizedAthletePhotoUrl } from "../athletes/photo-url";
 import type {
   AthleteEntry,
   ExportLayoutMode,
@@ -87,6 +88,7 @@ function athleteWithoutRank(athlete: RankedAthlete): AthleteEntry {
     id: athlete.id,
     name: athlete.name,
     normalizedName: athlete.normalizedName,
+    username: athlete.username,
     podiumPhotoAdjustments: athlete.podiumPhotoAdjustments,
     podiumPhotoUrl: athlete.podiumPhotoUrl,
     sportPodiumPhotoUrls: athlete.sportPodiumPhotoUrls,
@@ -180,13 +182,8 @@ export function specWithExportAthleteSelection(
   };
 }
 
-function normalizedPhotoUrl(value?: string) {
-  const trimmed = value?.trim();
-  return trimmed ? trimmed : undefined;
-}
-
 function cacheBustedPhotoUrl(value?: string, version?: string) {
-  const trimmed = normalizedPhotoUrl(value);
+  const trimmed = normalizedAthletePhotoUrl(value);
   const cacheVersion = version?.trim();
   if (!trimmed || !cacheVersion || /^(data|blob):/i.test(trimmed)) {
     return trimmed;
@@ -234,9 +231,9 @@ export function specWithDatabaseAthletePhotos(spec: LeaderboardSpec, databaseAth
 
       const databaseProfilePhotoUrl = cacheBustedPhotoUrl(matched.profilePhotoUrl, matched.updatedAt);
       const databasePodiumPhotoUrl = cacheBustedPhotoUrl(matched.podiumPhotoUrl, matched.updatedAt);
-      const existingProfilePhotoUrl = normalizedPhotoUrl(athlete.profilePhotoUrl);
-      const existingPodiumPhotoUrl = normalizedPhotoUrl(athlete.podiumPhotoUrl);
-      const existingAvatarDataUrl = normalizedPhotoUrl(athlete.avatarDataUrl);
+      const existingProfilePhotoUrl = normalizedAthletePhotoUrl(athlete.profilePhotoUrl);
+      const existingPodiumPhotoUrl = normalizedAthletePhotoUrl(athlete.podiumPhotoUrl);
+      const existingAvatarDataUrl = normalizedAthletePhotoUrl(athlete.avatarDataUrl);
       const profilePhotoUrl = databaseProfilePhotoUrl ?? existingProfilePhotoUrl;
       const sportPodiumPhotoUrls =
         matched.sportPodiumPhotoUrls === undefined
@@ -252,6 +249,7 @@ export function specWithDatabaseAthletePhotos(spec: LeaderboardSpec, databaseAth
         profilePhotoUrl,
         podiumPhotoUrl: databasePodiumPhotoUrl ?? existingPodiumPhotoUrl,
         sportPodiumPhotoUrls,
+        username: matched.username ?? athlete.username,
       };
     }),
   };
@@ -259,6 +257,7 @@ export function specWithDatabaseAthletePhotos(spec: LeaderboardSpec, databaseAth
 
 export async function downloadLeaderboardPng(spec: LeaderboardSpec, format: OutputFormat = STORY_FORMAT): Promise<string> {
   const response = await fetch("/api/export", {
+    credentials: "same-origin",
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ format, spec }),

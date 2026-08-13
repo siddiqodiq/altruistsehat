@@ -5,6 +5,8 @@ export interface AthleteRecord {
   id: string;
   name: string;
   normalizedName: string;
+  username?: string;
+  authUserId?: string;
   profilePhotoUrl?: string;
   podiumPhotoUrl?: string;
   sportPodiumPhotoUrls?: SportPodiumPhotoUrls;

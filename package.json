@@ -10,11 +10,14 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "backfill:athlete-users": "node scripts/backfill-athlete-users.mjs",
+    "promote:athlete-admins": "node scripts/promote-athlete-admins.mjs",
     "test:unit": "playwright test tests/unit",
     "test:a11y": "playwright test --config=playwright.a11y.config.ts"
   },
   "dependencies": {
     "@sparticuz/chromium-min": "^149.0.0",
+    "@supabase/ssr": "^0.12.4",
     "@supabase/supabase-js": "^2.107.0",
     "clsx": "^2.1.1",
     "framer-motion": "^12.38.0",

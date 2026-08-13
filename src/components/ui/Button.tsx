@@ -9,7 +9,8 @@ const VARIANT_CLASSNAMES: Record<ButtonVariant, string> = {
   primary: "bg-primary-brown text-white hover:bg-primary-brown/90",
   secondary:
     "border border-secondary-sand bg-white text-primary-charcoal hover:bg-secondary-sand/25 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100",
-  danger: "bg-red-600 text-white hover:bg-red-700",
+  danger:
+    "border border-red-200/80 bg-red-50/70 text-red-700 hover:bg-red-100/80 dark:border-red-900/60 dark:bg-red-950/25 dark:text-red-200 dark:hover:bg-red-950/45",
   ghost: "text-primary-charcoal/65 hover:bg-secondary-sand/35 dark:text-gray-300 dark:hover:bg-zinc-800",
 };
 

@@ -1,140 +1,46 @@
-"use client";
+import { redirect } from "next/navigation";
+import { NavbarClient, type NavbarProfile } from "@/components/NavbarClient";
+import {
+  createSupabaseServerAuthClient,
+  getCurrentAuthProfile,
+  isSupabaseAuthConfigError,
+} from "@/lib/supabase/auth-server";
 
-import { useState } from "react";
-import { Menu, X, Sun, Moon } from "lucide-react";
-import { motion } from "framer-motion";
-import Image from "next/image";
-import Link from "next/link";
-import logoImg from "../assets/LOGO.webp";
-import logoPutih from "../assets/logoputih.webp";
-import { useTheme } from "@/components/ThemeContext";
-import { Instagram, Strava } from "@/components/icons/SocialIcons";
+interface NavbarProps {
+  topVariant?: "default" | "inverse";
+}
 
-export default function Navbar() {
-  const [isOpen, setIsOpen] = useState(false);
-  const { theme, toggleTheme } = useTheme();
+function navbarProfileFromAuth(profile: Awaited<ReturnType<typeof getCurrentAuthProfile>>): NavbarProfile | null {
+  if (!profile) {
+    return null;
+  }
 
-  const navLinks = [
-    { name: "Beranda", href: "/" },
-    { name: "Kegiatan", href: "/#program" },
-    { name: "Leaderboard", href: "/leaderboard" },
-  ];
+  return {
+    athleteId: profile.athlete?.id,
+    name: profile.athlete?.name ?? "Akun Altruist",
+    profilePhotoUrl: profile.athlete?.profilePhotoUrl,
+    role: profile.role,
+    username: profile.athlete?.username,
+  };
+}
 
-  const currentLogo = theme === "dark" ? logoPutih : logoImg;
+export default async function Navbar({ topVariant = "default" }: NavbarProps = {}) {
+  const profile = navbarProfileFromAuth(await getCurrentAuthProfile());
 
-  return (
-    <nav className="fixed w-full z-50 bg-primary-beige/90 dark:bg-[#121212]/90 backdrop-blur-md border-b border-secondary-sand/50 dark:border-zinc-800 transition-colors duration-300">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex justify-between h-20 items-center">
-          <div className="flex items-center gap-2">
-            <div className="relative w-10 h-10 overflow-hidden rounded-lg">
-              <Image src={currentLogo} alt="Altruist Sehat" fill className="object-contain" />
-            </div>
-            <span className="font-poppins font-semibold text-xl text-primary-charcoal dark:text-gray-100">
-              Altruist Sehat
-            </span>
-          </div>
+  async function logoutAction() {
+    "use server";
 
-          {/* Desktop Menu */}
-          <div className="hidden md:flex items-center space-x-8">
-            {navLinks.map((link) => (
-              <Link
-                key={link.name}
-                href={link.href}
-                className="text-primary-charcoal dark:text-gray-300 hover:text-primary-brown dark:hover:text-secondary-sand font-medium transition-colors"
-              >
-                {link.name}
-              </Link>
-            ))}
-            
-            <button
-              onClick={toggleTheme}
-              className="relative flex items-center w-[60px] h-8 bg-[#f4f6f9] dark:bg-[#0f111a] rounded-full p-1 transition-colors duration-300 shadow-inner"
-              aria-label="Toggle Dark Mode"
-            >
-              <div 
-                className={`absolute w-6 h-6 rounded-full transition-all duration-300 ease-in-out ${
-                  theme === "dark" ? "translate-x-[28px] bg-[#2d324f]" : "translate-x-0 bg-[#e2e8f0]"
-                }`}
-              />
-              <div className="relative flex justify-between w-full px-[3px] z-10 pointer-events-none">
-                <Sun className={`w-[18px] h-[18px] transition-colors duration-300 ${theme === "dark" ? "text-slate-500" : "text-slate-800"}`} />
-                <Moon className={`w-[18px] h-[18px] transition-colors duration-300 ${theme === "dark" ? "text-white" : "text-slate-400"}`} />
-              </div>
-            </button>
+    try {
+      const supabase = await createSupabaseServerAuthClient();
+      await supabase.auth.signOut();
+    } catch (error) {
+      if (!isSupabaseAuthConfigError(error)) {
+        throw error;
+      }
+    }
 
-            <div className="bg-primary-brown dark:bg-[#2A2A2A] text-white pl-6 pr-4 py-2 rounded-full shadow-sm flex items-center gap-3">
-              <span className="text-sm font-medium">Join us</span>
-              <div className="flex items-center gap-2 border-l border-white/30 pl-3">
-                <a href="https://www.instagram.com/altruistsehat/" target="_blank" rel="noopener noreferrer" className="hover:text-white/80 transition-colors hover:scale-110 transform">
-                  <Instagram className="w-4 h-4" />
-                </a>
-                <a href="https://strava.app.link/loGKYOA4U1b" target="_blank" rel="noopener noreferrer" className="hover:text-white/80 transition-colors hover:scale-110 transform">
-                  <Strava className="w-4 h-4" />
-                </a>
-              </div>
-            </div>
-          </div>
+    redirect("/");
+  }
 
-          {/* Mobile Menu Button */}
-          <div className="md:hidden flex items-center gap-4">
-            <button
-              onClick={toggleTheme}
-              className="relative flex items-center w-[60px] h-8 bg-[#f4f6f9] dark:bg-[#0f111a] rounded-full p-1 transition-colors duration-300 shadow-inner"
-              aria-label="Toggle Dark Mode"
-            >
-              <div 
-                className={`absolute w-6 h-6 rounded-full transition-all duration-300 ease-in-out ${
-                  theme === "dark" ? "translate-x-[28px] bg-[#2d324f]" : "translate-x-0 bg-[#e2e8f0]"
-                }`}
-              />
-              <div className="relative flex justify-between w-full px-[3px] z-10 pointer-events-none">
-                <Sun className={`w-[18px] h-[18px] transition-colors duration-300 ${theme === "dark" ? "text-slate-500" : "text-slate-800"}`} />
-                <Moon className={`w-[18px] h-[18px] transition-colors duration-300 ${theme === "dark" ? "text-white" : "text-slate-400"}`} />
-              </div>
-            </button>
-            <button
-              onClick={() => setIsOpen(!isOpen)}
-              className="text-primary-charcoal dark:text-gray-300 hover:text-primary-brown dark:hover:text-secondary-sand focus:outline-none"
-            >
-              {isOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* Mobile Menu */}
-      {isOpen && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="md:hidden bg-primary-beige dark:bg-[#121212] border-b border-secondary-sand/50 dark:border-zinc-800"
-        >
-          <div className="px-4 pt-2 pb-6 space-y-2">
-            {navLinks.map((link) => (
-              <Link
-                key={link.name}
-                href={link.href}
-                onClick={() => setIsOpen(false)}
-                className="block px-3 py-2 text-base font-medium text-primary-charcoal dark:text-gray-300 hover:text-primary-brown dark:hover:text-secondary-sand hover:bg-secondary-sand/30 dark:hover:bg-zinc-800 rounded-md"
-              >
-                {link.name}
-              </Link>
-            ))}
-            <div className="w-full mt-4 bg-primary-brown dark:bg-[#2A2A2A] text-white px-6 py-3 rounded-full font-medium flex justify-between items-center">
-              <span>Join us</span>
-              <div className="flex items-center gap-3 border-l border-white/30 pl-4">
-                <a href="https://www.instagram.com/altruistsehat/" target="_blank" rel="noopener noreferrer" className="hover:text-white/80 transition-colors">
-                  <Instagram className="w-5 h-5" />
-                </a>
-                <a href="https://strava.app.link/loGKYOA4U1b" target="_blank" rel="noopener noreferrer" className="hover:text-white/80 transition-colors">
-                  <Strava className="w-5 h-5" />
-                </a>
-              </div>
-            </div>
-          </div>
-        </motion.div>
-      )}
-    </nav>
-  );
+  return <NavbarClient logoutAction={logoutAction} profile={profile} topVariant={topVariant} />;
 }

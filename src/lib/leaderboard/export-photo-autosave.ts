@@ -118,8 +118,8 @@ export function specWithLocalExportPhotoAdjustments(
       return {
         ...athlete,
         podiumPhotoAdjustments: {
-          ...local,
           ...(athlete.podiumPhotoAdjustments ?? {}),
+          ...local,
         },
       };
     }),

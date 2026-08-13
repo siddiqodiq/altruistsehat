@@ -27,7 +27,6 @@ import {
 import { upsertWeekSnapshot, type LeaderboardWeekSnapshot } from "./week-snapshots";
 import type { LeaderboardSpec } from "./types";
 
-export const ADMIN_TOKEN_STORAGE_KEY = "altruist-leaderboard-admin-token:v1";
 export const STORY_FORMAT = "story" as const;
 
 export function normalizeTemplateId(value: unknown): LeaderboardTemplateId {

@@ -4,6 +4,7 @@ import { normalizeAthleteName } from "@/lib/athletes/normalize";
 import { PodiumPhotoAdjustmentsSchema } from "@/lib/athletes/photo-adjustments-schema";
 import { normalizeSportPodiumPhotoUrls } from "@/lib/athletes/sport-podium-photos";
 import { SportPodiumPhotoUrlsSchema } from "@/lib/athletes/sport-podium-photos-schema";
+import { requireAdminAuth } from "@/lib/supabase/auth-server";
 import { errorMessage } from "@/lib/supabase/errors";
 import {
   ATHLETE_PODIUM_ADJUSTMENTS_MIGRATION_MESSAGE,
@@ -44,6 +45,11 @@ function errorResponse(error: unknown, fallback = "Athlete database request fail
 }
 
 export async function PATCH(request: NextRequest, context: RouteContext) {
+  const unauthorized = await requireAdminAuth();
+  if (unauthorized) {
+    return unauthorized;
+  }
+
   try {
     const { id } = await context.params;
     const body = await request.json().catch(() => null);
@@ -122,9 +128,32 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 }
 
 export async function DELETE(_request: NextRequest, context: RouteContext) {
+  const unauthorized = await requireAdminAuth();
+  if (unauthorized) {
+    return unauthorized;
+  }
+
   try {
     const { id } = await context.params;
     const supabase = createSupabaseServiceClient();
+    const { data: athlete, error: lookupError } = await supabase
+      .from("athletes")
+      .select("auth_user_id")
+      .eq("id", id)
+      .single();
+
+    if (lookupError) {
+      return NextResponse.json({ error: lookupError.message }, { status: lookupError.code === "PGRST116" ? 404 : 500 });
+    }
+
+    const authUserId = typeof athlete?.auth_user_id === "string" ? athlete.auth_user_id : "";
+    if (authUserId) {
+      const { error: authDeleteError } = await supabase.auth.admin.deleteUser(authUserId);
+      if (authDeleteError) {
+        throw authDeleteError;
+      }
+    }
+
     const { error } = await supabase.from("athletes").delete().eq("id", id);
 
     if (error) {

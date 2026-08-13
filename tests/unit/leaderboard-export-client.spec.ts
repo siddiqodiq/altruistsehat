@@ -106,6 +106,25 @@ test("specWithDatabaseAthletePhotos cache-busts sport podium photos with the dat
   });
 });
 
+test("specWithDatabaseAthletePhotos skips Strava CDN athlete photos that cannot be embedded reliably", () => {
+  const hydrated = specWithDatabaseAthletePhotos(baseSpec, [
+    {
+      id: "database-rakha",
+      name: "Rakha Maulana",
+      normalizedName: "rakha maulana",
+      profilePhotoUrl: "https://dgalywyr863hv.cloudfront.net/pictures/athletes/107592715/37954614/2/large.jpg",
+      updatedAt: "2026-08-10T08:09:37.583388+00:00",
+    },
+  ]);
+
+  expect(hydrated.athletes[0]).toMatchObject({
+    athleteId: "database-rakha",
+    normalizedName: "rakha maulana",
+  });
+  expect(hydrated.athletes[0].profilePhotoUrl).toBeUndefined();
+  expect(hydrated.athletes[0].avatarDataUrl).toBeUndefined();
+});
+
 test("specWithDatabaseAthletePhotos treats database sport podium photos as the source of truth", () => {
   const hydrated = specWithDatabaseAthletePhotos(
     {

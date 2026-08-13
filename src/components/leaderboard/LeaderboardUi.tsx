@@ -4,6 +4,7 @@ import { useMemo, useRef, useState, type ChangeEvent, type CSSProperties, type K
 import { motion } from "framer-motion";
 import Link from "next/link";
 import {
+  ArrowUpRight,
   Bike,
   CalendarDays,
   Download,
@@ -22,13 +23,14 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { LeaderboardCanvas } from "./LeaderboardCanvas";
+import { resolveUsableAthletePhotoUrl } from "@/lib/athletes/photo-url";
 import { initialsForName } from "@/lib/leaderboard/images";
 import { buildBumpChartData, leaderboardAthleteKey, type BumpChartData } from "@/lib/leaderboard/bump-chart";
 import { LEADERBOARD_CATEGORIES, type LeaderboardCategoryId } from "@/lib/leaderboard/categories";
 import { calculateWeeklyComparison, formatMetricValue } from "@/lib/leaderboard/metrics";
 import {
   clampExportPhotoAdjustment,
-  isCompactExportLayoutMode,
+  EXPORT_PHOTO_ADJUSTMENT_LIMITS,
   resolveAthletePhotoAdjustment,
   STORY_EXPORT_LAYOUT_MODES,
 } from "@/lib/leaderboard/photo-adjustments";
@@ -256,23 +258,6 @@ function movementText(movement?: AthleteMovement) {
   return "mempertahankan posisi";
 }
 
-function trendLabel(name: string) {
-  return name.length > 16 ? `${name.slice(0, 14)}...` : name;
-}
-
-function rankChangeLabel(delta: number) {
-  if (delta > 0) {
-    return `+${delta}`;
-  }
-
-  if (delta < 0) {
-    return `-${Math.abs(delta)}`;
-  }
-
-  return "-";
-}
-
-
 function signedPosition(value: number) {
   if (value > 0) {
     return `+${value}`;
@@ -283,6 +268,145 @@ function signedPosition(value: number) {
   }
 
   return "-";
+}
+
+interface LeaderboardProfileAthlete {
+  athleteId?: string;
+  key: string;
+  metric: MetricType;
+  name: string;
+  normalizedName?: string;
+  previousRank?: number;
+  profilePhotoUrl?: string;
+  rank: number;
+  rankDelta: number;
+  username?: string;
+  value: number;
+}
+
+function publicProfileHref(athlete: Pick<LeaderboardProfileAthlete, "username">) {
+  return athlete.username ? `/atlet/${encodeURIComponent(athlete.username)}` : null;
+}
+
+function profileAthleteFromRankedAthlete(
+  athlete: RankedAthlete,
+  metric: MetricType,
+  movement?: AthleteMovement,
+): LeaderboardProfileAthlete {
+  const key = leaderboardAthleteKey(athlete);
+
+  return {
+    athleteId: athlete.athleteId,
+    key,
+    metric,
+    name: athlete.name,
+    normalizedName: athlete.normalizedName,
+    previousRank: movement?.fromRank,
+    profilePhotoUrl: resolveUsableAthletePhotoUrl(athlete.profilePhotoUrl, athlete.avatarDataUrl),
+    rank: athlete.rank,
+    rankDelta: movement?.delta ?? 0,
+    username: athlete.username,
+    value: athlete.value,
+  };
+}
+
+function AthleteProfilePopover({
+  athlete,
+  onClose,
+}: {
+  athlete: LeaderboardProfileAthlete | null;
+  onClose: () => void;
+}) {
+  const dialogRef = useModalA11y<HTMLElement>(Boolean(athlete), onClose);
+
+  if (!athlete) {
+    return null;
+  }
+
+  const href = publicProfileHref(athlete);
+  const imageSrc = resolveUsableAthletePhotoUrl(athlete.profilePhotoUrl);
+
+  return (
+    <div className="fixed inset-0 z-[90] grid place-items-center bg-primary-charcoal/72 px-4 py-8 backdrop-blur-sm" data-testid="leaderboard-athlete-popover">
+      <section
+        aria-label={`Detail profil ${athlete.name}`}
+        aria-modal="true"
+        className="w-full max-w-md overflow-hidden rounded-2xl border border-secondary-sand/60 bg-primary-beige shadow-2xl dark:border-zinc-700 dark:bg-[#121212]"
+        ref={dialogRef}
+        role="dialog"
+        tabIndex={-1}
+      >
+        <div className="flex items-center justify-between gap-4 border-b border-secondary-sand/70 px-5 py-4 dark:border-zinc-800">
+          <div>
+            <p className="text-xs font-black uppercase tracking-[0.16em] text-primary-green dark:text-secondary-teal">Profil Atlet</p>
+            <h2 className="mt-1 truncate font-poppins text-2xl font-black text-primary-charcoal dark:text-white">{athlete.name}</h2>
+          </div>
+          <button
+            aria-label="Tutup detail profil atlet"
+            className="grid size-10 shrink-0 place-items-center rounded-full border border-secondary-sand bg-white text-primary-charcoal transition hover:bg-secondary-sand/30 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100"
+            onClick={onClose}
+            type="button"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
+
+        <div className="grid gap-5 p-5">
+          <div className="flex items-center gap-4">
+            <div className="grid size-20 shrink-0 place-items-center overflow-hidden rounded-full bg-primary-green/15 text-xl font-black text-primary-green ring-1 ring-primary-green/20">
+              {imageSrc ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img alt={`${athlete.name} profile`} className="h-full w-full object-cover" src={imageSrc} />
+              ) : (
+                initialsForName(athlete.name)
+              )}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-black text-primary-charcoal dark:text-gray-100">@{athlete.username ?? athlete.normalizedName ?? "profil-belum-terhubung"}</p>
+              <p className="mt-1 text-sm font-semibold text-primary-charcoal/58 dark:text-gray-400">
+                {athlete.username ? "Terhubung dengan database atlet." : "Profil publik belum tersedia untuk atlet ini."}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
+            <div className="rounded-xl border border-secondary-sand/70 bg-white/70 p-3 dark:border-zinc-800 dark:bg-zinc-950">
+              <p className="text-[10px] font-black uppercase tracking-[0.12em] text-primary-charcoal/45 dark:text-gray-500">Rank</p>
+              <p className="mt-1 font-poppins text-xl font-black text-primary-charcoal dark:text-white">#{athlete.rank}</p>
+            </div>
+            <div className="rounded-xl border border-secondary-sand/70 bg-white/70 p-3 dark:border-zinc-800 dark:bg-zinc-950">
+              <p className="text-[10px] font-black uppercase tracking-[0.12em] text-primary-charcoal/45 dark:text-gray-500">Nilai</p>
+              <p className="mt-1 truncate font-poppins text-lg font-black text-primary-charcoal dark:text-white">
+                {formatMetricValue(athlete.value, athlete.metric)}
+              </p>
+            </div>
+            <div className="rounded-xl border border-secondary-sand/70 bg-white/70 p-3 dark:border-zinc-800 dark:bg-zinc-950">
+              <p className="text-[10px] font-black uppercase tracking-[0.12em] text-primary-charcoal/45 dark:text-gray-500">Gerak</p>
+              <p className="mt-1 font-poppins text-xl font-black text-primary-charcoal dark:text-white">{signedPosition(athlete.rankDelta)}</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+            {href ? (
+              <Link
+                className="inline-flex h-11 items-center justify-center rounded-xl bg-primary-brown px-4 text-sm font-black text-white transition hover:bg-primary-brown/90"
+                href={href}
+              >
+                Lihat profil
+              </Link>
+            ) : null}
+            <button
+              className="inline-flex h-11 items-center justify-center rounded-xl border border-secondary-sand bg-white px-4 text-sm font-black text-primary-charcoal transition hover:bg-secondary-sand/30 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100"
+              onClick={onClose}
+              type="button"
+            >
+              Tutup
+            </button>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
 }
 
 function Sparkline({ values }: { values: number[] }) {
@@ -376,7 +500,7 @@ export function LeaderboardCardShell({
               type="button"
             >
               <RefreshCw className={cn("size-4", refreshing && "animate-spin")} />
-              Refresh
+              Segarkan
             </button>
           ) : null}
           {onExport ? (
@@ -387,7 +511,7 @@ export function LeaderboardCardShell({
               type="button"
             >
               <Download className="size-4" />
-              Export
+              Unduh gambar
             </button>
           ) : null}
           {actionSlot}
@@ -425,13 +549,13 @@ export function LeaderboardTable({
   subtitle?: string;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
-  const [showAll, setShowAll] = useState(false);
+  const [selectedProfileAthlete, setSelectedProfileAthlete] = useState<LeaderboardProfileAthlete | null>(null);
   const rankedAthletes = buildLeaderboardRows(spec.athletes, Math.max(10, spec.athletes.length));
   const normalizedQuery = searchQuery.trim().toLowerCase();
   const filteredAthletes = normalizedQuery
     ? rankedAthletes.filter((athlete) => athlete.name.toLowerCase().includes(normalizedQuery))
     : rankedAthletes;
-  const athletes = normalizedQuery || showAll ? filteredAthletes : filteredAthletes.slice(0, 10);
+  const athletes = filteredAthletes;
   const trendByAthlete = useMemo(() => {
     const trends = new Map<string, number[]>();
     snapshots.slice(-5).forEach((snapshot) => {
@@ -443,13 +567,17 @@ export function LeaderboardTable({
     return trends;
   }, [snapshots]);
 
+  function onAthleteOpen(athlete: LeaderboardProfileAthlete) {
+    setSelectedProfileAthlete(athlete);
+  }
+
   const tableBody = !rankedAthletes.length ? (
     <div className="p-5">
-      <EmptyState title="Belum ada ranking" message="Data ranking akan muncul setelah snapshot minggu tersedia." />
+      <EmptyState title="Belum ada peringkat" message="Peringkat akan muncul setelah data minggu ini siap." />
     </div>
   ) : !athletes.length ? (
     <div className="p-5">
-      <EmptyState title="Atlet tidak ditemukan" message="Coba kata kunci lain untuk mencari atlet di klasemen ini." />
+      <EmptyState title="Anggota tidak ditemukan" message="Coba kata kunci lain untuk mencari anggota di klasemen ini." />
     </div>
   ) : (
     <div className="overflow-hidden rounded-[1.35rem] border border-secondary-sand/60 bg-white dark:border-zinc-800 dark:bg-zinc-900">
@@ -464,11 +592,11 @@ export function LeaderboardTable({
           </colgroup>
           <thead>
             <tr className="border-b border-secondary-sand/50 bg-white text-xs font-black uppercase tracking-[0.08em] text-primary-charcoal/45 dark:border-zinc-800 dark:bg-zinc-900 dark:text-gray-500">
-              <th className="sticky left-0 z-30 whitespace-nowrap bg-inherit px-5 py-4 text-left">Rank</th>
-              <th className="sticky left-[80px] z-30 whitespace-nowrap bg-inherit px-5 py-4 text-left">Atlet</th>
-              <th className="whitespace-nowrap px-5 py-4 text-right">{spec.metric === "time_minutes" ? "Waktu" : "Mileage"}</th>
+              <th className="sticky left-0 z-30 whitespace-nowrap bg-inherit px-5 py-4 text-left">Peringkat</th>
+              <th className="sticky left-[80px] z-30 whitespace-nowrap bg-inherit px-5 py-4 text-left">Anggota</th>
+              <th className="whitespace-nowrap px-5 py-4 text-right">{spec.metric === "time_minutes" ? "Waktu" : "Jarak"}</th>
               <th className="whitespace-nowrap px-5 py-4 text-center">Perubahan</th>
-              <th className="whitespace-nowrap px-5 py-4 text-left">Trend</th>
+              <th className="whitespace-nowrap px-5 py-4 text-left">Tren</th>
             </tr>
           </thead>
           <tbody>
@@ -477,6 +605,8 @@ export function LeaderboardTable({
               const isHighlighted = highlightedKey === key;
               const movement = movementByAthleteKey[key];
               const values = trendByAthlete.get(key) ?? [];
+              const imageSrc = resolveUsableAthletePhotoUrl(athlete.profilePhotoUrl, athlete.avatarDataUrl);
+              const profileAthlete = profileAthleteFromRankedAthlete(athlete, spec.metric, movement);
 
               return (
                 <tr
@@ -493,21 +623,34 @@ export function LeaderboardTable({
                     <RankBadge rank={athlete.rank} />
                   </td>
                   <td className="sticky left-[80px] z-20 bg-inherit px-5 py-4">
-                    <span className="flex min-w-0 items-center gap-3">
+                    <button
+                      aria-label={`Buka profil ${athlete.name}`}
+                      className="group flex min-w-0 cursor-pointer items-center gap-3 rounded-xl text-left transition focus:outline-none focus:ring-2 focus:ring-primary-green/30"
+                      onBlur={() => onAthleteHover?.(null)}
+                      onClick={() => onAthleteOpen(profileAthlete)}
+                      onFocus={() => onAthleteHover?.(key)}
+                      type="button"
+                    >
                       <span className="grid size-9 shrink-0 place-items-center overflow-hidden rounded-full bg-secondary-sand/70 text-[11px] font-black text-primary-brown ring-1 ring-primary-brown/10 dark:bg-zinc-800 dark:text-secondary-sand">
-                        {athlete.profilePhotoUrl || athlete.avatarDataUrl ? (
+                        {imageSrc ? (
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             alt={`${athlete.name} avatar`}
                             className="h-full w-full object-cover"
-                            src={athlete.profilePhotoUrl ?? athlete.avatarDataUrl}
+                            src={imageSrc}
                           />
                         ) : (
                           initialsForName(athlete.name)
                         )}
                       </span>
-                      <span className="min-w-0 truncate font-bold text-primary-charcoal dark:text-gray-100">{athlete.name}</span>
-                    </span>
+                      <span className="min-w-0">
+                        <span className="block truncate font-bold text-primary-charcoal dark:text-gray-100">{athlete.name}</span>
+                        {athlete.username ? (
+                          <span className="mt-0.5 hidden truncate text-[11px] font-black text-primary-charcoal/38 dark:text-gray-500 sm:block">@{athlete.username}</span>
+                        ) : null}
+                      </span>
+                      <ArrowUpRight className="size-3.5 shrink-0 text-primary-brown/35 opacity-0 transition group-hover:opacity-100 group-focus-visible:opacity-100 dark:text-secondary-sand/55" />
+                    </button>
                   </td>
                   <td className="whitespace-nowrap px-5 py-4 text-right text-sm font-black text-primary-charcoal dark:text-gray-100">
                     {formatMetricValue(athlete.value, spec.metric)}
@@ -535,10 +678,7 @@ export function LeaderboardTable({
             <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-primary-charcoal/35 dark:text-gray-500" />
             <input
               className={inputClassName("h-10 pl-10")}
-              onChange={(event) => {
-                setSearchQuery(event.target.value);
-                setShowAll(false);
-              }}
+              onChange={(event) => setSearchQuery(event.target.value)}
               placeholder="Cari atlet..."
               value={searchQuery}
             />
@@ -552,7 +692,7 @@ export function LeaderboardTable({
               type="button"
             >
               <RefreshCw className={cn("size-4", refreshing && "animate-spin")} />
-              Refresh
+              Segarkan
             </button>
           ) : null}
           {onExport ? (
@@ -563,21 +703,18 @@ export function LeaderboardTable({
               type="button"
             >
               <Download className="size-4" />
-              Export
+              Unduh gambar
             </button>
           ) : null}
         </div>
       </div>
       {tableBody}
-      {!normalizedQuery && !showAll && rankedAthletes.length > 10 ? (
-        <button
-          className="text-sm font-black text-primary-brown underline-offset-4 hover:underline dark:text-secondary-sand"
-          onClick={() => setShowAll(true)}
-          type="button"
-        >
-          Lihat Semua Atlet →
-        </button>
+      {!normalizedQuery && rankedAthletes.length > 10 ? (
+        <p className="text-sm font-bold text-primary-charcoal/55 dark:text-gray-400">
+          Menampilkan semua {rankedAthletes.length} anggota yang diinput.
+        </p>
       ) : null}
+      <AthleteProfilePopover athlete={selectedProfileAthlete} onClose={() => setSelectedProfileAthlete(null)} />
     </div>
   );
 
@@ -625,8 +762,8 @@ export function LeaderboardStoryHero({
   ];
 
   return (
-    <section className="relative overflow-hidden border-b border-secondary-sand/60 bg-[#f7f3ee] pt-24 dark:border-zinc-800 dark:bg-[#121212] md:pt-28">
-      <div className="mx-auto grid max-w-[1600px] gap-8 px-4 pb-14 sm:px-6 lg:grid-cols-[minmax(0,0.98fr)_minmax(430px,1.02fr)] lg:items-stretch lg:px-8">
+    <section className="topbar-clearance relative overflow-hidden border-b border-secondary-sand/60 bg-[#f7f3ee] dark:border-zinc-800 dark:bg-[#121212]">
+      <div className="grid w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12 gap-8 pb-14 lg:grid-cols-[minmax(0,0.98fr)_minmax(430px,1.02fr)] lg:items-stretch">
         <div className="relative z-10 py-3 md:py-8">
           <p className="mb-5 text-xs font-black uppercase tracking-[0.28em] text-primary-green dark:text-secondary-teal">
             {categoryLabel} <span className="px-2 text-primary-brown/45 dark:text-secondary-sand/45">·</span> {weekLabel}
@@ -657,7 +794,7 @@ export function LeaderboardStoryHero({
             </div>
             <div className="h-12 w-px bg-secondary-sand/80 dark:bg-zinc-800" />
             <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-primary-charcoal/45 dark:text-gray-500">Atlet aktif</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.14em] text-primary-charcoal/45 dark:text-gray-500">Anggota aktif</p>
               <p className="mt-1 font-poppins text-2xl font-black text-primary-charcoal dark:text-gray-100">{activeAthletes}</p>
               <p className="mt-1 text-xs font-bold text-primary-charcoal/45 dark:text-gray-500">Bergabung minggu ini</p>
             </div>
@@ -777,7 +914,7 @@ export function MovementNarrative({ metric, story }: { metric: LeaderboardSpec["
         </p>
         <Link
           className="mt-5 inline-flex h-10 items-center justify-center rounded-xl bg-primary-brown px-4 text-sm font-bold text-white transition hover:bg-primary-brown/90"
-          href="/"
+          href="/event"
         >
           Lihat Kegiatan
         </Link>
@@ -794,12 +931,17 @@ function athleteColorIndex(key: string, paletteSize: number): number {
   return Math.abs(hash) % paletteSize;
 }
 
+function svgIdSuffix(value: string) {
+  return value.replace(/[^a-zA-Z0-9_-]/g, "-");
+}
+
 export function BumpChart({
   actionSlot,
   data,
   highlightedKey,
   leaderboard,
   onHighlightChange,
+  rangeLabel,
   toolbar,
 }: {
   actionSlot?: ReactNode;
@@ -807,6 +949,7 @@ export function BumpChart({
   highlightedKey?: string | null;
   leaderboard?: ReactNode;
   onHighlightChange?: (key: string | null) => void;
+  rangeLabel?: string;
   toolbar?: ReactNode;
 }) {
   type ChartSeries = BumpChartData["series"][number];
@@ -822,12 +965,14 @@ export function BumpChart({
     x: number;
     y: number;
   } | null>(null);
+  const [selectedProfileAthlete, setSelectedProfileAthlete] = useState<LeaderboardProfileAthlete | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const panRef = useRef<{ x: number; scrollLeft: number } | null>(null);
 
   const width = Math.max(1120, data.weeks.length * 190);
-  const padding = { top: 34, right: 180, bottom: 66, left: 78 };
-  const colors = ["#5A2E17", "#5E7A5E", "#C49A7C", "#7EC8C1", "#B7D6E6", "#8C5A3B", "#2F6F73", "#92754B", "#3E4F3E", "#1F1F1F"];
+  const padding = { top: 34, right: 88, bottom: 66, left: 78 };
+  const colors = ["#FFC400", "#7EC8C1", "#60A5FA", "#F472B6", "#A3E635", "#F97316", "#C084FC", "#2DD4BF", "#FDE68A", "#FB7185", "#93C5FD", "#D9F99D"];
+  const dashPatterns = ["", "9 5", "2 5", "12 4 2 4"];
   const activeKey = hoveredKey ?? selectedKey ?? highlightedKey ?? null;
   const selectedSeries = activeKey ? data.series.find((series) => series.key === activeKey) : undefined;
   const visibleSeries = useMemo(() => {
@@ -841,7 +986,8 @@ export function BumpChart({
   const occupiedRanks = data.series.flatMap((series) => series.points.map((point) => point.rank)).filter((rank): rank is number => rank !== null);
   const maxOccupiedRank = occupiedRanks.length ? Math.max(...occupiedRanks) : data.maxRank;
   const maxDisplayedRank = Math.min(data.maxRank, Math.max(5, maxOccupiedRank));
-  const height = Math.max(520, Math.min(760, maxDisplayedRank * 48));
+  const rankGapPx = maxDisplayedRank > 80 ? 34 : maxDisplayedRank > 40 ? 38 : 48;
+  const height = Math.max(520, maxDisplayedRank * rankGapPx);
   const innerWidth = width - padding.left - padding.right;
   const innerHeight = height - padding.top - padding.bottom;
   const xForWeek = (index: number) => padding.left + (data.weeks.length === 1 ? innerWidth / 2 : (index / (data.weeks.length - 1)) * innerWidth);
@@ -867,6 +1013,9 @@ export function BumpChart({
   const historyRangeLabel = data.weeks.length
     ? `${data.weeks[0].periodStartLabel} – ${data.weeks[data.weeks.length - 1].periodEndLabel}`
     : "";
+  const chartRangeLabel = rangeLabel ?? `${data.weeks.length} Minggu Terakhir`;
+  const latestWeekKey = data.weeks.at(-1)?.key;
+  const tooltipWidth = 260;
 
   if (!data.weeks.length || !data.series.length) {
     return (
@@ -878,7 +1027,7 @@ export function BumpChart({
                 Perebutan Puncak
               </h2>
               <p className="mt-2 text-xs font-black uppercase tracking-[0.16em] text-primary-green dark:text-secondary-teal">
-                {data.weeks.length} Minggu Terakhir · {historyRangeLabel || "Belum ada histori"}
+                {chartRangeLabel} · {historyRangeLabel || "Belum ada histori"}
               </p>
             </div>
             <div className="flex flex-wrap items-center gap-2 lg:justify-end">
@@ -888,7 +1037,7 @@ export function BumpChart({
           {toolbar ? <div className="rounded-2xl border border-secondary-sand/60 bg-primary-beige/45 p-4 dark:border-zinc-800 dark:bg-zinc-950/35">{toolbar}</div> : null}
         </div>
         <div className="mt-4">
-          <EmptyState title="Ranking story belum tersedia" message="Data beberapa minggu akan membentuk pergerakan ranking atlet di sini." />
+          <EmptyState title="Cerita peringkat belum tersedia" message="Data beberapa minggu akan membentuk pergerakan peringkat anggota di sini." />
         </div>
         {leaderboard ? <div className="mt-5 border-t border-secondary-sand/60 pt-5 dark:border-zinc-800">{leaderboard}</div> : null}
       </div>
@@ -900,6 +1049,7 @@ export function BumpChart({
     .filter((rank) => rank <= maxDisplayedRank)
     .concat(maxDisplayedRank)
     .filter((rank, index, array) => array.indexOf(rank) === index);
+  const gridRanks = Array.from({ length: maxDisplayedRank }, (_, index) => index + 1);
 
   function pointsForSeries(series: ChartSeries) {
     return series.points
@@ -954,7 +1104,15 @@ export function BumpChart({
     return previousRank === null ? undefined : previousRank;
   }
 
+  function isInteractiveChartTarget(target: EventTarget | null) {
+    return target instanceof Element && Boolean(target.closest("a, button, input, select, textarea, [role='button'], [data-chart-tooltip]"));
+  }
+
   function handlePointerDown(event: PointerEvent<HTMLDivElement>) {
+    if (isInteractiveChartTarget(event.target)) {
+      return;
+    }
+
     panRef.current = { x: event.clientX, scrollLeft: event.currentTarget.scrollLeft };
     event.currentTarget.setPointerCapture(event.pointerId);
   }
@@ -974,11 +1132,11 @@ export function BumpChart({
 
   function rankMovementTooltip(previousRank: number | undefined, currentRank: number | null) {
     if (currentRank === null) {
-      return "Tidak masuk Top 10";
+      return "Tidak masuk peringkat";
     }
 
     if (!previousRank) {
-      return "Baru masuk Top 10";
+      return "Baru masuk peringkat";
     }
 
     const delta = previousRank - currentRank;
@@ -1005,6 +1163,46 @@ export function BumpChart({
     });
   }
 
+  function profileAthleteFromSeries(series: ChartSeries): LeaderboardProfileAthlete {
+    return {
+      athleteId: series.athleteId,
+      key: series.key,
+      metric: series.metric,
+      name: series.name,
+      normalizedName: series.normalizedName,
+      previousRank: series.previousRank,
+      profilePhotoUrl: series.profilePhotoUrl,
+      rank: series.latestRank,
+      rankDelta: series.rankDelta,
+      username: series.username,
+      value: series.latestValue,
+    };
+  }
+
+  function onAthleteOpen(athlete: LeaderboardProfileAthlete) {
+    setSelectedProfileAthlete(athlete);
+  }
+
+  function focusChartAthlete(key: string) {
+    setSelectedKey(key);
+    setHoveredKey(key);
+    onHighlightChange?.(key);
+  }
+
+  function clearChartAthleteFocus() {
+    setHoveredKey(null);
+    onHighlightChange?.(null);
+  }
+
+  function handleAthleteKeyDown(event: KeyboardEvent<SVGElement>, athlete: LeaderboardProfileAthlete) {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+
+    event.preventDefault();
+    onAthleteOpen(athlete);
+  }
+
   function zoneRect(startRank: number, endRank: number, className: string) {
     if (startRank > maxDisplayedRank) {
       return null;
@@ -1017,6 +1215,7 @@ export function BumpChart({
   }
 
   return (
+    <>
     <div className="min-w-0 rounded-[1.75rem] border border-secondary-sand/60 bg-white p-4 shadow-[0_18px_48px_rgb(90,46,23,0.06)] dark:border-zinc-800 dark:bg-zinc-900">
       <div className="grid gap-4 border-b border-secondary-sand/60 pb-4 dark:border-zinc-800">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -1025,10 +1224,10 @@ export function BumpChart({
               Perebutan Puncak
             </h2>
             <p className="mt-2 text-xs font-black uppercase tracking-[0.16em] text-primary-green dark:text-secondary-teal">
-              {data.weeks.length} Minggu Terakhir · {historyRangeLabel}
+              {chartRangeLabel} · {historyRangeLabel}
             </p>
             <p className="mt-3 max-w-2xl text-sm font-semibold leading-6 text-primary-charcoal/58 dark:text-gray-400">
-              Bulan menjadi landmark utama, sementara detail tanggal muncul saat hover pada titik ranking.
+              Pergerakan mingguan ditarik sebagai lintasan peringkat agar kenaikan dan penurunan setiap anggota mudah dibandingkan.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2 lg:justify-end">
@@ -1039,7 +1238,7 @@ export function BumpChart({
       </div>
 
       <div
-        className="relative mt-4 max-h-[820px] w-full cursor-grab overflow-auto rounded-2xl bg-primary-beige/45 p-3 active:cursor-grabbing dark:bg-zinc-950/40"
+        className="relative mt-4 max-h-[820px] w-full cursor-grab overflow-auto rounded-2xl bg-primary-beige/45 p-3 active:cursor-grabbing dark:bg-[#070707]"
         onPointerDown={handlePointerDown}
         onPointerLeave={() => {
           panRef.current = null;
@@ -1051,18 +1250,29 @@ export function BumpChart({
         onPointerUp={handlePointerUp}
         ref={scrollRef}
       >
-        <svg aria-label="Bump chart ranking atlet" className="block" role="img" style={{ minWidth: width, width: "100%" }} viewBox={`0 0 ${width} ${height}`}>
-          {zoneRect(1, 1, "fill-[#F2C94C]/12")}
-          {zoneRect(2, 3, "fill-[#B7D6E6]/14")}
-          {zoneRect(4, 5, "fill-[#C49A7C]/12")}
-          {axisRanks.map((rank) => {
+        <svg aria-label="Bump chart ranking atlet" className="block" role="group" style={{ minWidth: width, width: "100%" }} viewBox={`0 0 ${width} ${height}`}>
+          {zoneRect(1, 1, "fill-[#F2C94C]/12 dark:fill-[#F2C94C]/18")}
+          {zoneRect(2, 3, "fill-[#B7D6E6]/14 dark:fill-[#7EC8C1]/12")}
+          {zoneRect(4, 5, "fill-[#C49A7C]/12 dark:fill-[#C49A7C]/10")}
+          {gridRanks.map((rank) => {
             const y = yForRank(rank);
+            const isLabeled = axisRanks.includes(rank);
             return (
               <g key={rank}>
-                <line stroke="#E6D7C2" strokeDasharray={rank === 1 ? "0" : "4 7"} strokeWidth="1" x1={padding.left} x2={width - padding.right} y1={y} y2={y} />
-                <text fill="#5A2E17" fontSize="12" fontWeight="800" textAnchor="end" x={padding.left - 14} y={y + 4}>
-                  #{rank}
-                </text>
+                <line
+                  className={rank === 1 ? "stroke-primary-brown/40 dark:stroke-white/50" : "stroke-primary-brown/22 dark:stroke-white/18"}
+                  strokeDasharray={rank === 1 ? "0" : "4 7"}
+                  strokeWidth={rank === 1 ? "1.5" : "1"}
+                  x1={padding.left}
+                  x2={width - padding.right}
+                  y1={y}
+                  y2={y}
+                />
+                {isLabeled ? (
+                  <text className="fill-primary-brown/80 dark:fill-white/72" fontSize="12" fontWeight="800" textAnchor="end" x={padding.left - 14} y={y + 4}>
+                    #{rank}
+                  </text>
+                ) : null}
               </g>
             );
           })}
@@ -1070,7 +1280,7 @@ export function BumpChart({
             const x = xForWeek(index);
             return (
               <g key={week.key}>
-                <line stroke="#E6D7C2" strokeWidth="1" x1={x} x2={x} y1={padding.top} y2={height - padding.bottom} />
+                <line className="stroke-primary-brown/20 dark:stroke-white/20" strokeWidth="1" x1={x} x2={x} y1={padding.top} y2={height - padding.bottom} />
               </g>
             );
           })}
@@ -1084,35 +1294,43 @@ export function BumpChart({
 
             return (
               <g key={group.key}>
-                <line stroke="#CDBCA9" strokeLinecap="round" strokeWidth="2" x1={lineStart} x2={lineEnd} y1={height - 34} y2={height - 34} />
-                <text fill="#5A2E17" fontSize="13" fontWeight="900" textAnchor="middle" x={centerX} y={height - 14}>
+                <line className="stroke-primary-brown/38 dark:stroke-secondary-sand/70" strokeLinecap="round" strokeWidth="2" x1={lineStart} x2={lineEnd} y1={height - 34} y2={height - 34} />
+                <text className="fill-primary-brown/90 dark:fill-secondary-sand" fontSize="13" fontWeight="900" textAnchor="middle" x={centerX} y={height - 14}>
                   {group.label}
                 </text>
               </g>
             );
           })}
-          {visibleSeries.map((series) => {
+          {visibleSeries.map((series, seriesIndex) => {
             const points = pointsForSeries(series);
             const segments = rankedSegments(points);
             const rankedPoints = segments.flat();
             const color = colors[athleteColorIndex(series.key, colors.length)];
+            const dashPattern = dashPatterns[seriesIndex % dashPatterns.length];
             const isActive = activeKey === series.key;
             const hasSpotlight = Boolean(activeKey);
-            const isInLatestTopTen = series.latestRank <= data.maxRank;
-            const opacity = isActive ? 1 : hasSpotlight ? 0.12 : isInLatestTopTen && series.latestRank <= 5 ? 0.94 : isInLatestTopTen ? 0.46 : 0.24;
-            const strokeWidth = isActive ? 5 : hasSpotlight ? 1.25 : isInLatestTopTen ? 3 : 2;
-            const latestPoint = rankedPoints[rankedPoints.length - 1];
-            const shouldShowLabel = Boolean(latestPoint && (series.latestRank <= 3 || selectedKey === series.key || hoveredKey === series.key || highlightedKey === series.key));
+            const isInDisplayedRange = series.latestRank <= data.maxRank;
+            const opacity = isActive ? 1 : hasSpotlight ? 0.12 : isInDisplayedRange && series.latestRank <= 5 ? 0.94 : isInDisplayedRange ? 0.54 : 0.24;
+            const strokeWidth = isActive ? 5 : hasSpotlight ? 1.25 : isInDisplayedRange ? 3 : 2;
+            const profileAthlete = profileAthleteFromSeries(series);
 
             return (
               <g key={series.key} opacity={opacity} style={{ transition: "opacity 200ms ease" }}>
                 {segments.map((segment, segmentIndex) => (
                   <motion.path
                     animate={{ pathLength: 1 }}
+                    aria-label={`Buka detail profil ${series.name}`}
                     d={curvedPath(segment)}
                     fill="none"
                     initial={{ pathLength: 0.82 }}
                     key={`${series.key}:segment:${segmentIndex}`}
+                    onBlur={() => {
+                      clearChartAthleteFocus();
+                      setTooltip(null);
+                    }}
+                    onClick={() => onAthleteOpen(profileAthlete)}
+                    onFocus={() => focusChartAthlete(series.key)}
+                    onKeyDown={(event) => handleAthleteKeyDown(event, profileAthlete)}
                     onMouseEnter={() => {
                       setHoveredKey(series.key);
                       onHighlightChange?.(series.key);
@@ -1120,26 +1338,44 @@ export function BumpChart({
                     onMouseLeave={() => {
                       setHoveredKey(null);
                       onHighlightChange?.(null);
-                      setTooltip(null);
                     }}
+                    role="button"
                     stroke={color}
+                    strokeDasharray={dashPattern || undefined}
                     strokeLinecap="round"
                     strokeLinejoin="round"
                     strokeWidth={strokeWidth}
-                    style={{ transition: "stroke-width 200ms ease, opacity 200ms ease" }}
+                    style={{ cursor: "pointer", transition: "stroke-width 200ms ease, opacity 200ms ease" }}
+                    tabIndex={0}
                     transition={{ duration: 0.35, ease: "easeOut" }}
                   />
                 ))}
-                {rankedPoints.map((point) => (
-                  <g key={`${series.key}:${point.weekKey}`}>
-                    <circle
-                      cx={point.x}
-                      cy={point.y}
-                      fill="#F5F1EB"
+                {rankedPoints.map((point) => {
+                  const isLatestWeekPoint = point.weekKey === latestWeekKey;
+                  const endpointImageSrc = isLatestWeekPoint ? resolveUsableAthletePhotoUrl(series.profilePhotoUrl) : null;
+                  const endpointClipId = `leaderboard-endpoint-avatar-clip-${svgIdSuffix(series.key)}`;
+                  const endpointSize = isActive ? 34 : 30;
+                  const endpointRadius = endpointSize / 2;
+                  const endpointInnerSize = endpointSize - 6;
+
+                  return (
+                    <g
+                      aria-label={`Buka detail profil ${series.name}`}
+                      key={`${series.key}:${point.weekKey}`}
+                      onBlur={() => {
+                        clearChartAthleteFocus();
+                        setTooltip(null);
+                      }}
                       onClick={() => {
                         setSelectedKey(series.key);
                         onHighlightChange?.(series.key);
+                        onAthleteOpen(profileAthlete);
                       }}
+                      onFocus={() => {
+                        focusChartAthlete(series.key);
+                        showTooltip(series, point);
+                      }}
+                      onKeyDown={(event) => handleAthleteKeyDown(event, profileAthlete)}
                       onMouseEnter={() => {
                         setHoveredKey(series.key);
                         onHighlightChange?.(series.key);
@@ -1148,48 +1384,143 @@ export function BumpChart({
                       onMouseLeave={() => {
                         setHoveredKey(null);
                         onHighlightChange?.(null);
-                        setTooltip(null);
                       }}
-                      r={isActive ? 7 : 5.5}
-                      stroke={color}
-                      strokeWidth={isActive ? 4 : 3}
-                    />
-                  </g>
-                ))}
-                {shouldShowLabel && latestPoint ? (
-                  <g transform={`translate(${latestPoint.x + 12} ${latestPoint.y - 15})`}>
-                    <circle cx="14" cy="14" fill="#F7F3EE" r="14" stroke={color} strokeWidth="2" />
-                    <text fill={color} fontSize="9" fontWeight="900" textAnchor="middle" x="14" y="17">
-                      {initialsForName(series.name)}
-                    </text>
-                    <text fill={color} fontSize="13" fontWeight="900" x="34" y="18">
-                      {trendLabel(series.name)} {rankChangeLabel(series.rankDelta)}
-                    </text>
-                  </g>
-                ) : null}
+                      role="button"
+                      style={{ cursor: "pointer" }}
+                      tabIndex={0}
+                    >
+                      {isLatestWeekPoint ? (
+                        <g data-testid={`leaderboard-endpoint-avatar-${series.key}`}>
+                          <circle className="fill-transparent" cx={point.x} cy={point.y} r={endpointRadius + 5} />
+                          <clipPath id={endpointClipId}>
+                            <circle cx={point.x} cy={point.y} r={endpointInnerSize / 2} />
+                          </clipPath>
+                          <circle
+                            className="fill-[#F7F3EE] dark:fill-[#0B0B0B]"
+                            cx={point.x}
+                            cy={point.y}
+                            r={endpointRadius}
+                            stroke={color}
+                            strokeWidth={isActive ? 3.5 : 2.5}
+                          />
+                          {endpointImageSrc ? (
+                            <image
+                              clipPath={`url(#${endpointClipId})`}
+                              height={endpointInnerSize}
+                              href={endpointImageSrc}
+                              preserveAspectRatio="xMidYMid slice"
+                              width={endpointInnerSize}
+                              x={point.x - endpointInnerSize / 2}
+                              y={point.y - endpointInnerSize / 2}
+                            />
+                          ) : (
+                            <text fill={color} fontSize="10" fontWeight="900" textAnchor="middle" x={point.x} y={point.y + 3.5}>
+                              {initialsForName(series.name)}
+                            </text>
+                          )}
+                          <circle className="fill-transparent stroke-white/75 dark:stroke-black/70" cx={point.x} cy={point.y} r={endpointRadius - 1} strokeWidth="1" />
+                        </g>
+                      ) : (
+                        <circle
+                          className="fill-[#F5F1EB] dark:fill-[#0B0B0B]"
+                          cx={point.x}
+                          cy={point.y}
+                          r={isActive ? 7 : 5.5}
+                          stroke={color}
+                          strokeWidth={isActive ? 4 : 3}
+                        />
+                      )}
+                    </g>
+                  );
+                })}
               </g>
             );
           })}
         </svg>
-        {tooltip ? (
-          <div
-            className="pointer-events-none absolute z-10 w-56 rounded-2xl border border-secondary-sand bg-white/95 p-3 text-sm shadow-xl dark:border-zinc-700 dark:bg-zinc-900/95"
-            style={{ left: Math.min(tooltip.x + 28, width - 250), top: Math.max(8, tooltip.y - 86) }}
-          >
-            <p className="font-poppins text-base font-black text-primary-charcoal dark:text-gray-100">{tooltip.series.name}</p>
-            <div className="mt-3 grid gap-1.5 font-semibold text-primary-charcoal/70 dark:text-gray-300">
-              <span>Peringkat #{tooltip.point.rank ?? "-"}</span>
-              <span>{tooltip.point.value === null ? "-" : formatMetricValue(tooltip.point.value, tooltip.series.metric)}</span>
-              <span>{rankMovementTooltip(tooltip.previousRank, tooltip.point.rank)}</span>
+        {tooltip ? (() => {
+          const tooltipAthlete = profileAthleteFromSeries(tooltip.series);
+          const tooltipHref = publicProfileHref(tooltipAthlete);
+          const tooltipImageSrc = resolveUsableAthletePhotoUrl(tooltip.series.profilePhotoUrl);
+          const tooltipLeft = Math.max(8, Math.min(tooltip.x + 22, width - tooltipWidth - 8));
+          const tooltipTop = Math.max(8, Math.min(tooltip.y - 98, height - 188));
+          const tooltipMovement = rankMovementTooltip(tooltip.previousRank, tooltip.point.rank);
+          const tooltipValue = tooltip.point.value === null ? "-" : formatMetricValue(tooltip.point.value, tooltip.series.metric);
+
+          return (
+            <div
+              className="pointer-events-auto absolute z-10 w-[260px] rounded-2xl border border-secondary-sand/80 bg-white/95 p-3 text-sm shadow-2xl ring-1 ring-primary-charcoal/5 dark:border-zinc-700 dark:bg-[#151515]/95 dark:ring-white/10"
+              data-chart-tooltip
+              data-testid="leaderboard-chart-profile-tooltip"
+              onMouseEnter={() => {
+                setHoveredKey(tooltip.series.key);
+                onHighlightChange?.(tooltip.series.key);
+              }}
+              onMouseLeave={() => {
+                setHoveredKey(null);
+                onHighlightChange?.(null);
+                setTooltip(null);
+              }}
+              style={{ left: tooltipLeft, top: tooltipTop }}
+            >
+              <div className="flex items-center gap-3">
+                <div className="grid size-10 shrink-0 place-items-center overflow-hidden rounded-full bg-primary-green/15 text-xs font-black text-primary-green ring-2 ring-primary-green/20 dark:bg-secondary-teal/10 dark:text-secondary-teal dark:ring-secondary-teal/25">
+                  {tooltipImageSrc ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img alt={`${tooltip.series.name} profile`} className="h-full w-full object-cover" src={tooltipImageSrc} />
+                  ) : (
+                    initialsForName(tooltip.series.name)
+                  )}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-poppins text-sm font-black text-primary-charcoal dark:text-gray-100">{tooltip.series.name}</p>
+                  <p className="mt-0.5 truncate text-[11px] font-black text-primary-charcoal/45 dark:text-gray-500">
+                    @{tooltip.series.username ?? tooltip.series.normalizedName ?? "profil-belum-terhubung"}
+                  </p>
+                </div>
+              </div>
+              <div className="mt-3 grid gap-1.5 rounded-xl bg-primary-beige/70 p-2.5 dark:bg-zinc-950/80">
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[10px] font-black uppercase tracking-[0.12em] text-primary-charcoal/45 dark:text-gray-500">Rank</span>
+                  <span className="font-poppins text-sm font-black text-primary-charcoal dark:text-white">#{tooltip.point.rank ?? "-"}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[10px] font-black uppercase tracking-[0.12em] text-primary-charcoal/45 dark:text-gray-500">Nilai</span>
+                  <span className="min-w-0 text-right font-poppins text-sm font-black text-primary-charcoal dark:text-white">{tooltipValue}</span>
+                </div>
+                <div className="flex items-start justify-between gap-3">
+                  <span className="text-[10px] font-black uppercase tracking-[0.12em] text-primary-charcoal/45 dark:text-gray-500">Gerak</span>
+                  <span className="min-w-0 text-right font-poppins text-sm font-black leading-5 text-primary-charcoal dark:text-white">{tooltipMovement}</span>
+                </div>
+              </div>
+              <div className="mt-3 grid gap-2 border-t border-secondary-sand/70 pt-3 dark:border-zinc-700">
+                <p className="text-[11px] font-black uppercase tracking-[0.12em] text-primary-charcoal/45 dark:text-gray-500">
+                  Periode: <span className="normal-case tracking-normal text-primary-charcoal/70 dark:text-gray-300">{tooltip.weekLabel}</span>
+                </p>
+                {tooltipHref ? (
+                  <Link
+                    className="inline-flex h-8 w-fit shrink-0 items-center justify-center rounded-lg bg-primary-brown px-3 text-xs font-black text-white transition hover:bg-primary-brown/90 focus:outline-none focus:ring-2 focus:ring-primary-brown/35"
+                    href={tooltipHref}
+                  >
+                    Lihat profil
+                  </Link>
+                ) : (
+                  <button
+                    className="inline-flex h-8 w-fit shrink-0 items-center justify-center rounded-lg border border-secondary-sand bg-white px-3 text-xs font-black text-primary-charcoal transition hover:bg-secondary-sand/30 focus:outline-none focus:ring-2 focus:ring-primary-brown/25 dark:border-zinc-700 dark:bg-zinc-950 dark:text-gray-100"
+                    onClick={() => onAthleteOpen(tooltipAthlete)}
+                    type="button"
+                  >
+                    Detail
+                  </button>
+                )}
+              </div>
             </div>
-            <div className="mt-3 border-t border-secondary-sand/70 pt-3 text-xs font-bold uppercase tracking-[0.12em] text-primary-charcoal/45 dark:border-zinc-700 dark:text-gray-500">
-              Periode: <span className="normal-case tracking-normal text-primary-charcoal/70 dark:text-gray-300">{tooltip.weekLabel}</span>
-            </div>
-          </div>
-        ) : null}
+          );
+        })() : null}
       </div>
       {leaderboard ? <div className="mt-5 border-t border-secondary-sand/60 pt-5 dark:border-zinc-800">{leaderboard}</div> : null}
     </div>
+    <AthleteProfilePopover athlete={selectedProfileAthlete} onClose={() => setSelectedProfileAthlete(null)} />
+    </>
   );
 }
 
@@ -1330,11 +1661,11 @@ function exportPhotoAdjustTarget(target: EventTarget | null): HTMLElement | null
 }
 
 function clampPhotoAdjustmentCoordinate(value: number) {
-  return Math.min(40, Math.max(-40, value));
+  return Math.min(EXPORT_PHOTO_ADJUSTMENT_LIMITS.offsetMax, Math.max(EXPORT_PHOTO_ADJUSTMENT_LIMITS.offsetMin, value));
 }
 
-function clampPhotoAdjustmentZoom(value: number, minimum: number) {
-  return Math.min(2.2, Math.max(minimum, value));
+function clampPhotoAdjustmentZoom(value: number) {
+  return Math.min(EXPORT_PHOTO_ADJUSTMENT_LIMITS.zoomMax, Math.max(EXPORT_PHOTO_ADJUSTMENT_LIMITS.zoomMin, value));
 }
 
 function cssAttributeValue(value: string) {
@@ -1380,9 +1711,7 @@ export function ExportPreviewModal({
     : adjustableAthletes[0]?.id ?? "";
   const selectedAdjustAthlete = adjustableAthletes.find((athlete) => athlete.id === resolvedSelectedAdjustAthleteId);
   const selectedAdjustment = exportPhotoAdjustmentValue(exportPhotoAdjustments, layoutMode, selectedAdjustAthlete);
-  const compactZoomMin = 0.8;
-  const zoomMin = isCompactExportLayoutMode(layoutMode) ? compactZoomMin : 1;
-  const displayZoom = Math.max(zoomMin, selectedAdjustment.zoom);
+  const displayZoom = clampPhotoAdjustmentZoom(selectedAdjustment.zoom);
   const controlsDisabled = exporting || refreshingExportPreview;
   const dragStateRef = useRef<ExportPhotoEditorDragState | null>(null);
   const [draggingPhotoAthleteId, setDraggingPhotoAthleteId] = useState("");
@@ -1543,20 +1872,19 @@ export function ExportPreviewModal({
       return;
     }
 
-    const targetZoomMin = isCompactExportLayoutMode(targetLayoutMode) ? compactZoomMin : 1;
     const zoomDelta = event.deltaY > 0 ? -0.05 : 0.05;
 
     setSelectedAdjustAthleteId(athleteId);
     event.preventDefault();
     onExportPhotoAdjustmentChange(targetLayoutMode, athleteId, {
       ...currentAdjustment,
-      zoom: clampPhotoAdjustmentZoom(currentAdjustment.zoom + zoomDelta, targetZoomMin),
+      zoom: clampPhotoAdjustmentZoom(currentAdjustment.zoom + zoomDelta),
     });
   }
 
   function nudgeSelectedZoom(delta: number) {
     updateSelectedAdjustment({
-      zoom: clampPhotoAdjustmentZoom(displayZoom + delta, zoomMin),
+      zoom: clampPhotoAdjustmentZoom(displayZoom + delta),
     });
   }
 
@@ -1567,7 +1895,7 @@ export function ExportPreviewModal({
   return (
     <div className="fixed inset-0 z-[80] grid place-items-center bg-primary-charcoal/70 px-4 py-8 backdrop-blur-sm">
       <section
-        aria-label="Preview export leaderboard"
+        aria-label="Pratinjau gambar leaderboard"
         aria-modal="true"
         className="max-h-full w-full max-w-4xl overflow-auto rounded-2xl border border-secondary-sand/50 bg-primary-beige p-5 shadow-2xl dark:border-zinc-700 dark:bg-[#121212]"
         ref={dialogRef}
@@ -1576,39 +1904,39 @@ export function ExportPreviewModal({
       >
         <div className="mb-4 flex items-center justify-between gap-4">
           <div>
-            <h2 className="font-poppins text-2xl font-bold text-primary-charcoal dark:text-gray-100">Preview Export</h2>
-            <p className="mt-1 text-sm text-primary-charcoal/60 dark:text-gray-400">Poster PNG memakai desain export yang sudah ada.</p>
+            <h2 className="font-poppins text-2xl font-bold text-primary-charcoal dark:text-gray-100">Pratinjau gambar</h2>
+            <p className="mt-1 text-sm text-primary-charcoal/60 dark:text-gray-400">Cek poster sebelum diunduh sebagai PNG.</p>
           </div>
           <div className="flex items-center gap-2">
             <button
-              aria-label="Backup posisi foto"
+              aria-label="Cadangkan posisi foto"
               className="grid size-10 place-items-center rounded-full border border-secondary-sand bg-white text-primary-charcoal transition hover:bg-secondary-sand/30 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100"
               onClick={handleBackupPositions}
-              title="Backup posisi foto (JSON)"
+              title="Cadangkan posisi foto (JSON)"
               type="button"
             >
               <Download className="size-5" />
             </button>
             <label
-              aria-label="Restore posisi foto"
+              aria-label="Pulihkan posisi foto"
               className="grid size-10 cursor-pointer place-items-center rounded-full border border-secondary-sand bg-white text-primary-charcoal transition hover:bg-secondary-sand/30 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100"
-              title="Restore posisi foto dari JSON"
+              title="Pulihkan posisi foto dari JSON"
             >
               <Upload className="size-5" />
               <input accept="application/json" className="sr-only" onChange={(event) => void handleRestorePositions(event)} type="file" />
             </label>
             <button
-              aria-label="Refresh export"
+              aria-label="Muat ulang pratinjau"
               className="grid size-10 place-items-center rounded-full border border-secondary-sand bg-white text-primary-charcoal transition hover:bg-secondary-sand/30 disabled:cursor-not-allowed disabled:opacity-60 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100"
               disabled={controlsDisabled}
               onClick={onRefresh}
-              title="Refresh export"
+              title="Muat ulang pratinjau"
               type="button"
             >
               <RefreshCw className={cn("size-5", refreshingExportPreview && "animate-spin")} />
             </button>
             <button
-              aria-label="Close export preview"
+              aria-label="Tutup pratinjau gambar"
               className="grid size-10 place-items-center rounded-full border border-secondary-sand bg-white text-primary-charcoal transition hover:bg-secondary-sand/30 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100"
               onClick={onClose}
               type="button"
@@ -1660,7 +1988,7 @@ export function ExportPreviewModal({
               >
                 <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.12em] text-primary-charcoal/55 dark:text-gray-400">
                   <Users className="size-3.5" />
-                  Athletes
+                  Anggota
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   {exportAthleteSelectionOptions.map((option) => {
@@ -1693,7 +2021,7 @@ export function ExportPreviewModal({
             >
               <div className="flex items-center justify-between gap-2">
                 <div className="text-[11px] font-black uppercase tracking-[0.12em] text-primary-charcoal/55 dark:text-gray-400">
-                  Photo Adjust
+                  Atur Foto
                 </div>
                 <span className="rounded-full bg-primary-brown/10 px-2 py-1 text-[10px] font-black uppercase tracking-[0.08em] text-primary-brown dark:bg-secondary-sand/10 dark:text-secondary-sand">
                   {layoutMode === "podiumTop10" ? "Podium" : layoutMode.replace("top", "Top ")}
@@ -1735,12 +2063,12 @@ export function ExportPreviewModal({
                     <div className="flex items-center justify-between gap-2">
                       <label className="flex items-center gap-1.5 font-mono text-xs font-black text-primary-charcoal/60 dark:text-gray-400">
                         <input
-                          aria-label="Zoom value"
+                          aria-label="Nilai zoom"
                           className="w-14 rounded-lg border border-secondary-sand bg-white px-1.5 py-1 text-right font-mono text-xs font-black text-primary-charcoal disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100"
                           disabled={controlsDisabled || !selectedAdjustAthlete}
-                          max="2.2"
-                          min={zoomMin}
-                          onChange={(event) => updateSelectedAdjustment({ zoom: clampPhotoAdjustmentZoom(Number(event.currentTarget.value), zoomMin) })}
+                          max={EXPORT_PHOTO_ADJUSTMENT_LIMITS.zoomMax}
+                          min={EXPORT_PHOTO_ADJUSTMENT_LIMITS.zoomMin}
+                          onChange={(event) => updateSelectedAdjustment({ zoom: clampPhotoAdjustmentZoom(Number(event.currentTarget.value)) })}
                           step="0.05"
                           type="number"
                           value={displayZoom.toFixed(2)}
@@ -1749,7 +2077,7 @@ export function ExportPreviewModal({
                       </label>
                       <div className="flex items-center gap-1.5">
                         <button
-                          aria-label="Zoom out selected photo"
+                          aria-label="Perkecil foto terpilih"
                           className="grid size-8 cursor-pointer place-items-center rounded-lg border border-secondary-sand bg-white text-primary-charcoal transition hover:bg-secondary-sand/30 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100"
                           disabled={controlsDisabled || !selectedAdjustAthlete}
                           onClick={() => nudgeSelectedZoom(-0.05)}
@@ -1758,7 +2086,7 @@ export function ExportPreviewModal({
                           <Minus className="size-4" />
                         </button>
                         <button
-                          aria-label="Zoom in selected photo"
+                          aria-label="Perbesar foto terpilih"
                           className="grid size-8 cursor-pointer place-items-center rounded-lg border border-secondary-sand bg-white text-primary-charcoal transition hover:bg-secondary-sand/30 disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100"
                           disabled={controlsDisabled || !selectedAdjustAthlete}
                           onClick={() => nudgeSelectedZoom(0.05)}
@@ -1772,11 +2100,11 @@ export function ExportPreviewModal({
                       <label className="flex items-center gap-1 rounded-lg bg-primary-beige/80 px-2 py-1 dark:bg-zinc-900">
                         X
                         <input
-                          aria-label="Horizontal position"
+                          aria-label="Posisi horizontal"
                           className="w-full min-w-0 bg-transparent text-right font-mono text-[11px] font-black text-primary-charcoal disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-100"
                           disabled={controlsDisabled || !selectedAdjustAthlete}
-                          max="40"
-                          min="-40"
+                          max={EXPORT_PHOTO_ADJUSTMENT_LIMITS.offsetMax}
+                          min={EXPORT_PHOTO_ADJUSTMENT_LIMITS.offsetMin}
                           onChange={(event) => updateSelectedAdjustment({ x: clampPhotoAdjustmentCoordinate(Number(event.currentTarget.value)) })}
                           step="1"
                           type="number"
@@ -1786,11 +2114,11 @@ export function ExportPreviewModal({
                       <label className="flex items-center gap-1 rounded-lg bg-primary-beige/80 px-2 py-1 dark:bg-zinc-900">
                         Y
                         <input
-                          aria-label="Vertical position"
+                          aria-label="Posisi vertikal"
                           className="w-full min-w-0 bg-transparent text-right font-mono text-[11px] font-black text-primary-charcoal disabled:cursor-not-allowed disabled:opacity-50 dark:text-gray-100"
                           disabled={controlsDisabled || !selectedAdjustAthlete}
-                          max="40"
-                          min="-40"
+                          max={EXPORT_PHOTO_ADJUSTMENT_LIMITS.offsetMax}
+                          min={EXPORT_PHOTO_ADJUSTMENT_LIMITS.offsetMin}
                           onChange={(event) => updateSelectedAdjustment({ y: clampPhotoAdjustmentCoordinate(Number(event.currentTarget.value)) })}
                           step="1"
                           type="number"
@@ -1805,11 +2133,11 @@ export function ExportPreviewModal({
                     onClick={() => selectedAdjustAthlete && onExportPhotoAdjustmentReset(layoutMode, selectedAdjustAthlete.id)}
                     type="button"
                   >
-                    Reset
+                    Atur ulang
                   </button>
                 </>
               ) : (
-                <p className="mt-3 text-xs font-semibold leading-5 text-primary-charcoal/55 dark:text-gray-400">Tidak ada foto atlet untuk layout ini.</p>
+                <p className="mt-3 text-xs font-semibold leading-5 text-primary-charcoal/55 dark:text-gray-400">Tidak ada foto anggota untuk tampilan ini.</p>
               )}
             </div>
             <button
@@ -1818,14 +2146,14 @@ export function ExportPreviewModal({
               onClick={onDownload}
               type="button"
             >
-              {exporting ? "Rendering..." : "Download PNG"}
+              {exporting ? "Menyiapkan..." : "Unduh PNG"}
             </button>
             <button
               className={buttonClassName("border border-secondary-sand bg-white text-primary-charcoal hover:bg-secondary-sand/30 dark:border-zinc-700 dark:bg-zinc-900 dark:text-gray-100")}
               onClick={onClose}
               type="button"
             >
-              Cancel
+              Batal
             </button>
           </div>
         </div>
@@ -1834,6 +2162,6 @@ export function ExportPreviewModal({
   );
 }
 
-export function chartDataFromSnapshots(snapshots: LeaderboardWeekSnapshot[]) {
-  return buildBumpChartData(snapshots);
+export function chartDataFromSnapshots(snapshots: LeaderboardWeekSnapshot[], maxWeeks = 4) {
+  return buildBumpChartData(snapshots, { maxWeeks });
 }

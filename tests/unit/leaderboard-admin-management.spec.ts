@@ -1,5 +1,4 @@
 import { expect, test } from "@playwright/test";
-import { requireLeaderboardAdmin } from "../../src/lib/leaderboard/admin-auth";
 import {
   countLeaderboardDraftChanges,
   formatDeleteWeekSuccessMessage,
@@ -8,29 +7,6 @@ import {
 } from "../../src/lib/leaderboard/admin-management";
 import type { LeaderboardProjectState } from "../../src/lib/leaderboard/project-state";
 import { LeaderboardProjectStateSchema } from "../../src/lib/leaderboard/project-state";
-
-function requestWithToken(token: string): Request {
-  return new Request("http://localhost/api/leaderboard/week-snapshots", {
-    headers: {
-      Authorization: `Bearer ${token}`,
-    },
-  });
-}
-
-test("temporary local admin auth accepts the hardcoded development token", () => {
-  expect(requireLeaderboardAdmin(requestWithToken("admin123"))).toBeUndefined();
-});
-
-test("temporary local admin auth rejects invalid development tokens", async () => {
-  const response = requireLeaderboardAdmin(requestWithToken("not-admin123"));
-
-  expect(response).toBeInstanceOf(Response);
-  expect(response?.status).toBe(401);
-  await expect(response?.json()).resolves.toMatchObject({
-    success: false,
-    message: "Invalid admin token.",
-  });
-});
 
 test("formatDeleteWeekSuccessMessage compacts same-month date ranges for toasts", () => {
   expect(formatDeleteWeekSuccessMessage("22 Jun 2026 – 28 Jun 2026")).toBe(

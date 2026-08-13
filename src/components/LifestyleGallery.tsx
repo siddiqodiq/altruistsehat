@@ -1,106 +1,108 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import { motion } from "framer-motion";
-import Image from "next/image";
+import { ImageIcon } from "lucide-react";
+import type { HomeDocumentationCover } from "@/lib/activities/home-activity-content";
 
-import img1 from "../assets/kolase/image-1.webp";
-import img2 from "../assets/kolase/image-2.webp";
-import img3 from "../assets/kolase/image-3.webp";
-import img4 from "../assets/kolase/image-4.webp";
-import img5 from "../assets/kolase/image-5.webp";
-import img6 from "../assets/kolase/image-6.webp";
-import img7 from "../assets/kolase/image-7.webp";
-import img8 from "../assets/kolase/image-8.webp";
-import img9 from "../assets/kolase/image-9.webp";
-import img10 from "../assets/kolase/image-10.webp";
-import img11 from "../assets/kolase/image-11.webp";
-import img12 from "../assets/kolase/image-12.webp";
-import img13 from "../assets/kolase/image-13.webp";
-import img14 from "../assets/kolase/image-14.webp";
-import img15 from "../assets/kolase/C5D_5100.webp";
+interface LifestyleGalleryProps {
+  documentationCovers: HomeDocumentationCover[];
+  error?: string | null;
+  loading?: boolean;
+}
 
-const row1 = [
-  { src: img1, ratio: "aspect-[4/3]" },
-  { src: img2, ratio: "aspect-square" },
-  { src: img3, ratio: "aspect-[4/3]" },
-  { src: img4, ratio: "aspect-[2/1]" },
-  { src: img5, ratio: "aspect-square" },
-  { src: img6, ratio: "aspect-[4/3]" },
-  { src: img7, ratio: "aspect-square" },
-  { src: img15, ratio: "aspect-[4/3]" },
-];
+const skeletonRatios = ["aspect-[4/3]", "aspect-square", "aspect-[4/3]", "aspect-[2/1]", "aspect-square"];
 
-const row2 = [
-  { src: img8, ratio: "aspect-[2/1]" },
-  { src: img9, ratio: "aspect-square" },
-  { src: img10, ratio: "aspect-[4/3]" },
-  { src: img11, ratio: "aspect-square" },
-  { src: img12, ratio: "aspect-[4/3]" },
-  { src: img13, ratio: "aspect-[2/1]" },
-  { src: img14, ratio: "aspect-[4/3]" },
-];
+function skeletonRatio(index: number): string {
+  return skeletonRatios[index % skeletonRatios.length];
+}
 
-export default function LifestyleGallery() {
+function splitRows(items: HomeDocumentationCover[]): [HomeDocumentationCover[], HomeDocumentationCover[]] {
+  const row1 = items.filter((_, index) => index % 2 === 0);
+  const row2 = items.filter((_, index) => index % 2 === 1);
+
+  return [row1.length ? row1 : items, row2.length ? row2 : row1];
+}
+
+function GalleryRow({ direction, items, rowKey }: { direction: "left" | "right"; items: HomeDocumentationCover[]; rowKey: string }) {
+  const animation = direction === "left" ? { x: ["0%", "-50%"] } : { x: ["-50%", "0%"] };
+
   return (
-    <section id="dokumentasi" className="py-24 bg-white dark:bg-[#151515] overflow-hidden transition-colors duration-300">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-16">
-        <div className="text-center max-w-3xl mx-auto">
-          <h2 className="text-3xl md:text-4xl font-poppins font-bold text-primary-charcoal dark:text-gray-100 mb-4">
+    <div className="group relative flex w-full overflow-hidden">
+      <motion.div
+        animate={animation}
+        className="flex w-max shrink-0 gap-4 sm:gap-6"
+        transition={{ duration: 40, ease: "linear", repeat: Infinity }}
+      >
+        {[...items, ...items].map((item, index) => (
+          <figure
+            className="relative h-48 shrink-0 overflow-hidden rounded-2xl shadow-sm md:h-64 md:rounded-3xl"
+            key={`${rowKey}-${item.id}-${index}`}
+          >
+            <img
+              alt={item.altText}
+              className="block h-full w-auto max-w-none"
+              src={item.imageUrl}
+            />
+          </figure>
+        ))}
+      </motion.div>
+    </div>
+  );
+}
+
+function GallerySkeleton() {
+  return (
+    <div className="flex w-full origin-center -rotate-2 scale-105 flex-col gap-4 sm:gap-6">
+      {[0, 1].map((row) => (
+        <div className="flex w-full gap-4 overflow-hidden sm:gap-6" key={row}>
+          {[0, 1, 2, 3, 4].map((item) => (
+            <div
+              className={`h-48 shrink-0 animate-pulse rounded-2xl bg-secondary-sand/30 dark:bg-zinc-800 md:h-64 md:rounded-3xl ${skeletonRatio(item + row)}`}
+              key={item}
+            />
+          ))}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export default function LifestyleGallery({ documentationCovers, error = null, loading = false }: LifestyleGalleryProps) {
+  const [row1, row2] = splitRows(documentationCovers);
+
+  return (
+    <section id="dokumentasi" className="overflow-hidden bg-white py-24 transition-colors duration-300 dark:bg-[#151515]">
+      <div className="mb-16 w-full px-4 sm:px-6 lg:px-8 xl:px-10 2xl:px-12">
+        <div className="text-center">
+          <h2 className="mb-4 font-poppins text-3xl font-bold text-primary-charcoal dark:text-gray-100 md:text-4xl">
             Dokumentasi Kegiatan
           </h2>
-          <p className="text-lg text-primary-charcoal/70 dark:text-gray-300 font-inter">
-            kegiatan seru kami gini lohhh
+          <p className="font-inter text-lg text-primary-charcoal/70 dark:text-gray-300">
+            Potongan momen dari latihan, race day, dan kumpul sehat bareng komunitas.
           </p>
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 sm:gap-6 w-full -rotate-2 scale-105 origin-center">
-        {/* Row 1 - Moves Left */}
-        <div className="relative flex overflow-hidden w-full group">
-          <motion.div
-            className="flex shrink-0 gap-4 sm:gap-6 w-max"
-            animate={{ x: ["0%", "-50%"] }}
-            transition={{ duration: 40, ease: "linear", repeat: Infinity }}
-          >
-            {[...row1, ...row1].map((item, index) => (
-              <div
-                key={`row1-${index}`}
-                className={`relative h-48 md:h-64 rounded-2xl md:rounded-3xl overflow-hidden shrink-0 shadow-sm ${item.ratio}`}
-              >
-                <Image
-                  src={item.src}
-                  alt="Dokumentasi Kegiatan"
-                  fill
-                  className="object-cover transition-transform duration-700 hover:scale-110"
-                />
-              </div>
-            ))}
-          </motion.div>
+      {loading ? (
+        <GallerySkeleton />
+      ) : error ? (
+        <div className="mx-4 rounded-xl border border-red-200 bg-red-50 px-5 py-4 text-sm font-bold text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-200 sm:mx-6 lg:mx-8">
+          {error}
         </div>
-
-        {/* Row 2 - Moves Right */}
-        <div className="relative flex overflow-hidden w-full group">
-          <motion.div
-            className="flex shrink-0 gap-4 sm:gap-6 w-max"
-            animate={{ x: ["-50%", "0%"] }}
-            transition={{ duration: 40, ease: "linear", repeat: Infinity }}
-          >
-            {[...row2, ...row2].map((item, index) => (
-              <div
-                key={`row2-${index}`}
-                className={`relative h-48 md:h-64 rounded-2xl md:rounded-3xl overflow-hidden shrink-0 shadow-sm ${item.ratio}`}
-              >
-                <Image
-                  src={item.src}
-                  alt="Dokumentasi Kegiatan"
-                  fill
-                  className="object-cover transition-transform duration-700 hover:scale-110"
-                />
-              </div>
-            ))}
-          </motion.div>
+      ) : documentationCovers.length ? (
+        <div className="flex w-full origin-center -rotate-2 scale-105 flex-col gap-4 sm:gap-6">
+          <GalleryRow direction="left" items={row1} rowKey="row1" />
+          <GalleryRow direction="right" items={row2} rowKey="row2" />
         </div>
-      </div>
+      ) : (
+        <div className="mx-4 rounded-xl border border-secondary-sand/70 bg-white/75 px-5 py-12 text-center dark:border-zinc-800 dark:bg-zinc-900 sm:mx-6 lg:mx-8">
+          <ImageIcon className="mx-auto mb-4 size-8 text-primary-charcoal/35 dark:text-gray-500" />
+          <h3 className="font-poppins text-xl font-black text-primary-charcoal dark:text-gray-100">Dokumentasi belum tersedia.</h3>
+          <p className="mt-2 text-sm text-primary-charcoal/60 dark:text-gray-400">Dokumentasi baru akan muncul begitu momen serunya siap dibagikan.</p>
+        </div>
+      )}
     </section>
   );
 }
