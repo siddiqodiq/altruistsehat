@@ -22,6 +22,7 @@ import {
 } from "@/lib/leaderboard/types";
 import { initialsForName } from "@/lib/leaderboard/images";
 import { deriveCurrentTrendTotal, derivePreviousWeekTotal } from "@/lib/leaderboard/templates";
+import { exportTrendGraphValues } from "@/lib/leaderboard/export-trend";
 import { cn } from "@/lib/utils";
 import { Bike, Dumbbell, Footprints, Mountain, PersonStanding, Waves, type LucideIcon } from "lucide-react";
 
@@ -661,7 +662,7 @@ function StorySummary({ spec, total }: { spec: LeaderboardSpec; total: number })
         </div>
       </div>
       <div className="justify-self-end">
-        <StoryTrendGraph values={(spec.trendValues.length ? spec.trendValues : [total]).slice(-7)} />
+        <StoryTrendGraph values={exportTrendGraphValues(spec.trendValues.length ? spec.trendValues : [total])} />
       </div>
     </section>
   );
@@ -1238,7 +1239,7 @@ function StatsSection({
       </div>
 
       <div className="justify-self-end">
-        <TrendGraph compact={compact} values={[...spec.trendValues, total].slice(-7)} />
+        <TrendGraph compact={compact} values={exportTrendGraphValues([...spec.trendValues, total])} />
       </div>
     </section>
   );

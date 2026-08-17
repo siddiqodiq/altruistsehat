@@ -34,6 +34,7 @@ const compactExportLayouts = [
 
 export const defaultExportPhotoAdjustment = DEFAULT_EXPORT_PHOTO_ADJUSTMENTS.podiumTop10;
 export { clampExportPhotoAdjustment };
+export { exportTrendGraphValues } from "./export-trend";
 
 export function filenameFromResponse(response: Response, format: OutputFormat): string {
   const fallback = format === "story" ? "leaderboard-story.png" : "leaderboard-feed.png";

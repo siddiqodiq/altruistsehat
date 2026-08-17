@@ -2,6 +2,7 @@ import { expect, test } from "@playwright/test";
 import {
   downloadBlob,
   exportAthleteSelectionOptions,
+  exportTrendGraphValues,
   specWithDatabaseAthletePhotos,
   specWithExportAthleteSelection,
 } from "../../src/lib/leaderboard/export-client";
@@ -26,6 +27,11 @@ const baseSpec: LeaderboardSpec = {
     },
   ],
 };
+
+test("exportTrendGraphValues keeps the latest point plus four previous weekly points", () => {
+  expect(exportTrendGraphValues([10, 20, 30, 40, 50, 60, 70, 80])).toEqual([40, 50, 60, 70, 80]);
+  expect(exportTrendGraphValues([10, 20, 30, 40, 50, 60, 70, 80, 90])).toEqual([50, 60, 70, 80, 90]);
+});
 
 test("specWithDatabaseAthletePhotos fills stale snapshot athlete photos from athlete database records", () => {
   const hydrated = specWithDatabaseAthletePhotos(baseSpec, [
