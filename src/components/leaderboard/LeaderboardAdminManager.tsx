@@ -62,8 +62,8 @@ import {
 } from "@/lib/leaderboard/admin-management";
 import {
   createCategoryDraft,
-  createInitialCategoryDrafts,
   currentSnapshotFromDraft,
+  ensureCategoryDrafts,
   normalizeCategoryProjectState,
   snapshotKey,
   STORY_FORMAT,
@@ -776,8 +776,8 @@ function AdminLeaderboardTable({
 
 export function LeaderboardAdminManager({ topbarClearance = false }: { topbarClearance?: boolean } = {}) {
   const [selectedCategory, setSelectedCategory] = useState<LeaderboardCategoryId>(DEFAULT_LEADERBOARD_CATEGORY);
-  const [draftsByCategory, setDraftsByCategory] = useState<Record<LeaderboardCategoryId, LeaderboardProjectState>>(createInitialCategoryDrafts);
-  const [savedDraftsByCategory, setSavedDraftsByCategory] = useState<Record<LeaderboardCategoryId, LeaderboardProjectState>>(createInitialCategoryDrafts);
+  const [draftsByCategory, setDraftsByCategory] = useState<Record<LeaderboardCategoryId, LeaderboardProjectState>>(() => ensureCategoryDrafts());
+  const [savedDraftsByCategory, setSavedDraftsByCategory] = useState<Record<LeaderboardCategoryId, LeaderboardProjectState>>(() => ensureCategoryDrafts());
   const [snapshots, setSnapshots] = useState<LeaderboardWeekSnapshot[]>([]);
   const [pasteValue, setPasteValue] = useState("Utha,128.4\nAndi,120.1\nBudi,112.3");
   const [, setStatus] = useState("Memuat leaderboard");
@@ -806,14 +806,18 @@ export function LeaderboardAdminManager({ topbarClearance = false }: { topbarCle
   const activeExportPhotoAutosavesRef = useRef<Promise<void>[]>([]);
 
   const canEdit = true;
-  const draft = draftsByCategory[selectedCategory];
-  const savedDraft = savedDraftsByCategory[selectedCategory];
+  const draft = draftsByCategory[selectedCategory] ?? createCategoryDraft(selectedCategory);
+  const savedDraft = savedDraftsByCategory[selectedCategory] ?? draft;
   const selectedCategoryConfig = categoryConfigForId(selectedCategory);
   const unsavedChangeCount = useMemo(() => countLeaderboardDraftChanges(draft, savedDraft), [draft, savedDraft]);
   const hasUnsavedChanges = unsavedChangeCount > 0;
   const changedCells = useMemo(() => changedAthleteCellKeys(draft.spec, savedDraft?.spec), [draft.spec, savedDraft?.spec]);
   const hasAnyUnsavedChanges = useMemo(
-    () => LEADERBOARD_CATEGORIES.some((category) => countLeaderboardDraftChanges(draftsByCategory[category.id], savedDraftsByCategory[category.id]) > 0),
+    () =>
+      LEADERBOARD_CATEGORIES.some((category) => {
+        const categoryDraft = draftsByCategory[category.id];
+        return categoryDraft ? countLeaderboardDraftChanges(categoryDraft, savedDraftsByCategory[category.id]) > 0 : false;
+      }),
     [draftsByCategory, savedDraftsByCategory],
   );
   const athleteTotal = useMemo(() => sumMetricValues(draft.spec.athletes), [draft.spec.athletes]);
@@ -906,7 +910,7 @@ export function LeaderboardAdminManager({ topbarClearance = false }: { topbarCle
           ),
         ]);
 
-        const nextDrafts = createInitialCategoryDrafts();
+        const nextDrafts = ensureCategoryDrafts();
         await Promise.all(
           projectResponses.map(async (response, index) => {
             if (!response.ok) {
@@ -940,6 +944,11 @@ export function LeaderboardAdminManager({ topbarClearance = false }: { topbarCle
     }
 
     void loadAdminData();
+  }, []);
+
+  useEffect(() => {
+    setDraftsByCategory((current) => ensureCategoryDrafts(current));
+    setSavedDraftsByCategory((current) => ensureCategoryDrafts(current));
   }, []);
 
   useEffect(() => {
@@ -1069,7 +1078,7 @@ export function LeaderboardAdminManager({ topbarClearance = false }: { topbarCle
       });
     }
 
-    const sourceDraft = draftsByCategory[target.category];
+    const sourceDraft = draftsByCategory[target.category] ?? createCategoryDraft(target.category);
     return createCategoryDraft(target.category, {
       seasonYear: target.seasonYear,
       weekNumber: target.weekNumber,

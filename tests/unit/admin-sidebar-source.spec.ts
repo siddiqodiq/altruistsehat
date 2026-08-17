@@ -129,3 +129,13 @@ test("leaderboard admin uses friendly Indonesian labels instead of technical act
   expect(adminManager).not.toContain("Rendering PNG");
   expect(adminManager).not.toContain("Save failed");
 });
+
+test("leaderboard admin normalizes category drafts before switching metric views", () => {
+  const adminManager = source("src/components/leaderboard/LeaderboardAdminManager.tsx");
+
+  expect(adminManager).toContain("ensureCategoryDrafts");
+  expect(adminManager).toContain("useState<Record<LeaderboardCategoryId, LeaderboardProjectState>>(() => ensureCategoryDrafts())");
+  expect(adminManager).toContain("setDraftsByCategory((current) => ensureCategoryDrafts(current));");
+  expect(adminManager).toContain("const sourceDraft = draftsByCategory[target.category] ?? createCategoryDraft(target.category);");
+  expect(adminManager).not.toContain("const sourceDraft = draftsByCategory[target.category];");
+});
