@@ -50,9 +50,13 @@ import {
 import { clearAthleteLookupCache } from "@/lib/athletes/client-cache";
 import {
   ATHLETE_IMAGE_CROP_PRESETS,
+  ATHLETE_IMAGE_CROP_ZOOM_LIMITS,
   centeredCropFrame,
-  clampCropFrame,
+  clampZoomableCropFrame,
   cropImageFile,
+  cropFrameOffsetLimits,
+  cropFrameForZoom,
+  cropFrameImagePlacement,
   readImageFile,
   type AthleteImageKind,
   type CropFrame,
@@ -1100,41 +1104,37 @@ function CropImageModal({
 }) {
   const preset = ATHLETE_IMAGE_CROP_PRESETS[session.kind];
   const frame = session.frame;
-  const maxX = Math.max(0, session.dimensions.width - frame.width);
-  const maxY = Math.max(0, session.dimensions.height - frame.height);
+  const xLimits = cropFrameOffsetLimits(session.dimensions.width, frame.width);
+  const yLimits = cropFrameOffsetLimits(session.dimensions.height, frame.height);
   const baseFrame = centeredCropFrame(session.dimensions, preset.aspectRatio);
-  const zoom = Math.max(1, Math.min(3, Number((baseFrame.width / frame.width).toFixed(2))));
-  const backgroundPositionX = maxX ? `${(frame.x / maxX) * 100}%` : "50%";
-  const backgroundPositionY = maxY ? `${(frame.y / maxY) * 100}%` : "50%";
+  const zoom = Math.max(
+    ATHLETE_IMAGE_CROP_ZOOM_LIMITS.min,
+    Math.min(ATHLETE_IMAGE_CROP_ZOOM_LIMITS.max, Number((baseFrame.width / frame.width).toFixed(2))),
+  );
   const cropTitle = session.kind === "profile" ? "Foto profil" : "Foto podium";
   const previewStyle: CSSProperties = {
     aspectRatio: `${preset.outputWidth} / ${preset.outputHeight}`,
-    backgroundImage: `url(${session.dataUrl})`,
-    backgroundPosition: `${backgroundPositionX} ${backgroundPositionY}`,
-    backgroundRepeat: "no-repeat",
-    backgroundSize: `${(session.dimensions.width / frame.width) * 100}% ${(session.dimensions.height / frame.height) * 100}%`,
+  };
+  const previewImagePlacement = cropFrameImagePlacement(session.dimensions, frame, { width: 100, height: 100 });
+  const previewImageStyle: CSSProperties = {
+    height: `${previewImagePlacement.height}%`,
+    left: `${previewImagePlacement.x}%`,
+    top: `${previewImagePlacement.y}%`,
+    width: `${previewImagePlacement.width}%`,
   };
 
   function updateFrame(patch: Partial<CropFrame>) {
-    onFrameChange(clampCropFrame({ ...frame, ...patch }, session.dimensions));
+    onFrameChange(clampZoomableCropFrame({ ...frame, ...patch }, session.dimensions));
   }
 
   function updateZoom(nextZoom: number) {
-    const centerX = frame.x + frame.width / 2;
-    const centerY = frame.y + frame.height / 2;
-    const nextWidth = Math.max(64, Math.round(baseFrame.width / nextZoom));
-    const nextHeight = Math.max(64, Math.round(nextWidth / preset.aspectRatio));
-
     onFrameChange(
-      clampCropFrame(
-        {
-          x: Math.round(centerX - nextWidth / 2),
-          y: Math.round(centerY - nextHeight / 2),
-          width: nextWidth,
-          height: nextHeight,
-        },
-        session.dimensions,
-      ),
+      cropFrameForZoom({
+        aspectRatio: preset.aspectRatio,
+        currentFrame: frame,
+        source: session.dimensions,
+        zoom: nextZoom,
+      }),
     );
   }
 
@@ -1169,25 +1169,34 @@ function CropImageModal({
           <div className="grid place-items-center rounded-lg border border-secondary-sand/70 bg-secondary-sand/25 p-4 dark:border-zinc-800 dark:bg-zinc-900">
             <div
               className={cn(
-                "w-full max-w-[360px] overflow-hidden border-2 border-white shadow-[0_18px_44px_rgba(0,0,0,0.22)]",
+                "relative w-full max-w-[360px] overflow-hidden border-2 border-white bg-primary-charcoal/12 shadow-[0_18px_44px_rgba(0,0,0,0.22)] dark:bg-white/8",
                 preset.frameClassName,
               )}
               style={previewStyle}
-            />
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                alt={`Pratinjau ${cropTitle.toLowerCase()}`}
+                className="absolute max-w-none select-none"
+                draggable={false}
+                src={session.dataUrl}
+                style={previewImageStyle}
+              />
+            </div>
           </div>
 
           <div className="grid content-start gap-4">
             <label className="grid gap-2 text-sm font-black text-primary-charcoal/85 dark:text-gray-300">
               Perbesar
-              <input max="3" min="1" onChange={(event) => updateZoom(Number(event.target.value))} step="0.01" type="range" value={zoom} />
+              <input max={ATHLETE_IMAGE_CROP_ZOOM_LIMITS.max} min={ATHLETE_IMAGE_CROP_ZOOM_LIMITS.min} onChange={(event) => updateZoom(Number(event.target.value))} step="0.01" type="range" value={zoom} />
             </label>
             <label className="grid gap-2 text-sm font-black text-primary-charcoal/85 dark:text-gray-300">
               Geser horizontal
-              <input max={maxX} min="0" onChange={(event) => updateFrame({ x: Number(event.target.value) })} step="1" type="range" value={frame.x} />
+              <input max={xLimits.max} min={xLimits.min} onChange={(event) => updateFrame({ x: Number(event.target.value) })} step="1" type="range" value={frame.x} />
             </label>
             <label className="grid gap-2 text-sm font-black text-primary-charcoal/85 dark:text-gray-300">
               Geser vertikal
-              <input max={maxY} min="0" onChange={(event) => updateFrame({ y: Number(event.target.value) })} step="1" type="range" value={frame.y} />
+              <input max={yLimits.max} min={yLimits.min} onChange={(event) => updateFrame({ y: Number(event.target.value) })} step="1" type="range" value={frame.y} />
             </label>
           </div>
         </div>

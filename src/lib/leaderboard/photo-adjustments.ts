@@ -56,6 +56,15 @@ export const DEFAULT_EXPORT_PHOTO_ADJUSTMENTS: Record<ExportLayoutMode, ExportPh
   top1: DEFAULT_EXPORT_PHOTO_ADJUSTMENT,
 };
 
+const EXPORT_PHOTO_DRAG_DIRECTIONS: Record<ExportLayoutMode, 1> = {
+  podiumTop10: 1,
+  top5: 1,
+  top4: 1,
+  top3: 1,
+  top2: 1,
+  top1: 1,
+};
+
 function finiteNumber(value: unknown, fallback: number) {
   const parsed = typeof value === "number" ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -104,6 +113,41 @@ export function compactPresetPreviewHeightPx(
   const topOneRowHeight = compactExportRowHeightPx(1);
 
   return Math.round((rowHeight / topOneRowHeight) * maxHeightPx);
+}
+
+export function exportPhotoAdjustmentFromDrag({
+  currentX,
+  currentY,
+  layoutMode,
+  previewScale,
+  startAdjustment,
+  startX,
+  startY,
+  targetHeight,
+  targetWidth,
+}: {
+  currentX: number;
+  currentY: number;
+  layoutMode: ExportLayoutMode;
+  previewScale: number;
+  startAdjustment: ExportPhotoAdjustment;
+  startX: number;
+  startY: number;
+  targetHeight: number;
+  targetWidth: number;
+}): ExportPhotoAdjustment {
+  const safePreviewScale = Math.max(0.01, Math.abs(finiteNumber(previewScale, 1)));
+  const safeTargetWidth = Math.max(1, finiteNumber(targetWidth, 1));
+  const safeTargetHeight = Math.max(1, finiteNumber(targetHeight, 1));
+  const movementX = ((finiteNumber(currentX, startX) - finiteNumber(startX, 0)) / safePreviewScale / safeTargetWidth) * 100;
+  const movementY = ((finiteNumber(currentY, startY) - finiteNumber(startY, 0)) / safePreviewScale / safeTargetHeight) * 100;
+  const direction = EXPORT_PHOTO_DRAG_DIRECTIONS[layoutMode];
+
+  return clampExportPhotoAdjustment({
+    ...startAdjustment,
+    x: startAdjustment.x + movementX * direction,
+    y: startAdjustment.y + movementY * direction,
+  });
 }
 
 function legacyObjectPositionOffset(value: number) {

@@ -33,9 +33,11 @@ import { buildLeaderboardRows } from "@/lib/leaderboard/ranking";
 import {
   DEFAULT_LEADERBOARD_CATEGORY,
   LEADERBOARD_CATEGORIES,
+  categoryForSportMetric,
   categoryConfigForId,
-  defaultSportMetricOptions,
   filterSnapshotsByCategory,
+  leaderboardSportOptions,
+  metricOptionsForSport,
   templateIdForCategory,
   type LeaderboardCategoryId,
 } from "@/lib/leaderboard/categories";
@@ -46,6 +48,7 @@ import type {
   ExportPhotoAdjustments,
   LeaderboardSpec,
   MetricType,
+  SportType,
 } from "@/lib/leaderboard/types";
 import {
   UNSAVED_ADMIN_CHANGES_STORAGE_KEY,
@@ -205,8 +208,16 @@ function AdminControls({
   onViewChange: (patch: Partial<Pick<LeaderboardProjectState, "seasonYear" | "weekNumber">>) => void;
   onTotalOverrideChange: (value: string) => void;
 }) {
-  const sportOptions = useMemo(() => defaultSportMetricOptions(), []);
-  const selectedSportOption = sportOptions.find((option) => option.categoryId === selectedCategory) ?? sportOptions[0];
+  const sportOptions = useMemo(() => leaderboardSportOptions(), []);
+  const selectedCategoryConfig = categoryConfigForId(selectedCategory);
+  const selectedSportOption = sportOptions.find((option) => option.sportType === selectedCategoryConfig.sportType) ?? {
+    defaultCategoryId: selectedCategory,
+    shortLabel: selectedCategoryConfig.shortLabel,
+    sportLabel: selectedCategoryConfig.label,
+    sportType: selectedCategoryConfig.sportType,
+  };
+  const metricOptions = useMemo(() => metricOptionsForSport(selectedSportOption.sportType), [selectedSportOption.sportType]);
+  const selectedMetricOption = metricOptions.find((option) => option.categoryId === selectedCategory) ?? metricOptions[0];
   const activeCalendar = useMemo(() => buildSeasonMonthCalendar(context.season, context.week), [context.season, context.week]);
   const [weekPickerOpen, setWeekPickerOpen] = useState(false);
 
@@ -223,7 +234,7 @@ function AdminControls({
           </h2>
         </div>
         <p className="text-sm font-black text-primary-charcoal/55 dark:text-gray-400">
-          Musim {context.season} · {selectedSportOption.sportLabel} · {selectedSportOption.metricLabel}
+          Musim {context.season} · {selectedSportOption.sportLabel} · {selectedMetricOption?.metricLabel ?? context.metric}
         </p>
       </div>
 
@@ -261,21 +272,33 @@ function AdminControls({
           <select
             className={controlFieldClassName("appearance-none pr-9")}
             disabled={!canEdit}
-            onChange={(event) => onCategorySelect(event.target.value as LeaderboardCategoryId)}
-            value={selectedCategory}
+            onChange={(event) => onCategorySelect(categoryForSportMetric(event.target.value as SportType, selectedCategoryConfig.metric))}
+            value={selectedSportOption.sportType}
           >
             {sportOptions.map((option) => (
-              <option key={option.categoryId} value={option.categoryId}>
+              <option key={option.sportType} value={option.sportType}>
                 {option.sportLabel}
               </option>
             ))}
           </select>
         </label>
 
-        <div className={fieldLabelClassName()}>
+        <label className={fieldLabelClassName()}>
           Ukuran
-          <p className={controlFieldClassName("bg-secondary-sand/20 dark:bg-zinc-800/70")}>{selectedSportOption.metricLabel}</p>
-        </div>
+          <select
+            aria-label="Pilih ukuran"
+            className={controlFieldClassName("appearance-none pr-9")}
+            disabled={!canEdit || metricOptions.length < 2}
+            onChange={(event) => onCategorySelect(event.target.value as LeaderboardCategoryId)}
+            value={selectedMetricOption?.categoryId ?? selectedCategory}
+          >
+            {metricOptions.map((option) => (
+              <option key={option.categoryId} value={option.categoryId}>
+                {option.metricLabel}
+              </option>
+            ))}
+          </select>
+        </label>
 
         <label className={fieldLabelClassName()}>
           Total komunitas

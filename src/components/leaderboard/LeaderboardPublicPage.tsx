@@ -19,7 +19,11 @@ import {
 import { resolveMetricTotal } from "@/lib/leaderboard/metrics";
 import {
   LEADERBOARD_CATEGORIES,
+  categoryConfigForId,
+  categoryForSportMetric,
   filterSnapshotsByCategory,
+  leaderboardSportOptions,
+  metricOptionsForSport,
   normalizeLeaderboardCategory,
   templateIdForCategory,
   type LeaderboardCategoryId,
@@ -33,7 +37,7 @@ import {
 } from "@/lib/leaderboard/dashboard-state";
 import { specWithDatabaseAthletePhotos } from "@/lib/leaderboard/export-client";
 import { buildLeaderboardStory } from "@/lib/leaderboard/story";
-import type { LeaderboardSpec } from "@/lib/leaderboard/types";
+import type { LeaderboardSpec, MetricType, SportType } from "@/lib/leaderboard/types";
 import {
   LeaderboardWeekSnapshotSchema,
   compareSnapshotsByWeekAsc,
@@ -76,6 +80,18 @@ function emptySpecForCategory(categoryId: LeaderboardCategoryId): LeaderboardSpe
   };
 }
 
+function totalLabelForMetric(metric: MetricType): string {
+  if (metric === "time_minutes") {
+    return "Total Time";
+  }
+
+  if (metric === "elevation_m") {
+    return "Total Elevation Gain";
+  }
+
+  return "Total Mileage";
+}
+
 export function LeaderboardPublicPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -91,6 +107,7 @@ export function LeaderboardPublicPage() {
   const [chartRangeWeeks, setChartRangeWeeks] = useState<ChartRangeWeeks>(DEFAULT_CHART_RANGE_WEEKS);
   const [photoEnrichedSpec, setPhotoEnrichedSpec] = useState<{ key: string; spec: LeaderboardSpec } | null>(null);
   const [photoEnrichedSnapshots, setPhotoEnrichedSnapshots] = useState<{ key: string; snapshots: LeaderboardWeekSnapshot[] } | null>(null);
+  const sportOptions = useMemo(() => leaderboardSportOptions(), []);
 
   async function loadLeaderboard() {
     setLoading(true);
@@ -270,9 +287,9 @@ export function LeaderboardPublicPage() {
       : "2 Bulan Terakhir";
   const story = useMemo(() => buildLeaderboardStory(selectedSnapshot, visibleSnapshots), [selectedSnapshot, visibleSnapshots]);
   const selectedTotal = selectedSnapshot?.total ?? resolveMetricTotal(selectedSpec.athletes, selectedSpec.totalOverride);
-  const selectedCategoryConfig =
-    LEADERBOARD_CATEGORIES.find((category) => category.id === selectedCategory) ?? LEADERBOARD_CATEGORIES[0];
-  const totalLabel = selectedCategory === "weight_training" ? "Total Time" : "Total Mileage";
+  const selectedCategoryConfig = categoryConfigForId(selectedCategory);
+  const metricOptions = useMemo(() => metricOptionsForSport(selectedCategoryConfig.sportType), [selectedCategoryConfig.sportType]);
+  const totalLabel = totalLabelForMetric(selectedSpec.metric);
 
   useEffect(() => {
     setSelectedSnapshotKey((current) => {
@@ -380,6 +397,14 @@ export function LeaderboardPublicPage() {
     router.replace(`/leaderboard?${query.toString()}`, { scroll: false });
   }
 
+  function handleSportSelect(sportType: SportType) {
+    handleCategorySelect(categoryForSportMetric(sportType, selectedCategoryConfig.metric));
+  }
+
+  function handleMetricSelect(category: LeaderboardCategoryId) {
+    handleCategorySelect(category);
+  }
+
   const chartRangeFilter = (
     <div
       aria-label="Filter rentang chart leaderboard"
@@ -426,8 +451,11 @@ export function LeaderboardPublicPage() {
         <CategorySwitch
           hasError={!loading && Boolean(loadError)}
           isLoading={loading}
-          onSelect={handleCategorySelect}
+          metrics={metricOptions}
+          onMetricSelect={handleMetricSelect}
+          onSportSelect={handleSportSelect}
           selectedCategory={selectedCategory}
+          sportOptions={sportOptions}
           summaries={categorySummaries}
         />
 

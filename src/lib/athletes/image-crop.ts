@@ -34,6 +34,13 @@ export interface CroppedAthleteImage {
   previewUrl: string;
 }
 
+export interface CropFrameImagePlacement {
+  height: number;
+  width: number;
+  x: number;
+  y: number;
+}
+
 export type AthleteImageOutputMimeType = "image/jpeg" | "image/png" | "image/webp";
 
 const OUTPUT_MIME_EXTENSIONS: Record<AthleteImageOutputMimeType, string> = {
@@ -41,6 +48,11 @@ const OUTPUT_MIME_EXTENSIONS: Record<AthleteImageOutputMimeType, string> = {
   "image/png": "png",
   "image/webp": "webp",
 };
+
+export const ATHLETE_IMAGE_CROP_ZOOM_LIMITS = {
+  max: 3,
+  min: 0.2,
+} as const;
 
 export const ATHLETE_IMAGE_CROP_PRESETS: Record<AthleteImageKind, AthleteImageCropPreset> = {
   profile: {
@@ -111,6 +123,69 @@ export function clampCropFrame(frame: CropFrame, source: ImageDimensions): CropF
   };
 }
 
+export function cropFrameOffsetLimits(sourceSize: number, frameSize: number): { max: number; min: number } {
+  const safeSourceSize = Math.max(1, Math.round(sourceSize));
+  const safeFrameSize = Math.max(1, Math.round(frameSize));
+
+  if (safeFrameSize > safeSourceSize) {
+    return {
+      max: 0,
+      min: safeSourceSize - safeFrameSize,
+    };
+  }
+
+  return {
+    max: safeSourceSize - safeFrameSize,
+    min: 0,
+  };
+}
+
+export function clampZoomableCropFrame(frame: CropFrame, source: ImageDimensions): CropFrame {
+  const sourceWidth = Math.max(1, Math.round(source.width));
+  const sourceHeight = Math.max(1, Math.round(source.height));
+  const width = Math.max(1, Math.round(frame.width));
+  const height = Math.max(1, Math.round(frame.height));
+  const xLimits = cropFrameOffsetLimits(sourceWidth, width);
+  const yLimits = cropFrameOffsetLimits(sourceHeight, height);
+
+  return {
+    x: Math.min(xLimits.max, Math.max(xLimits.min, Math.round(frame.x))),
+    y: Math.min(yLimits.max, Math.max(yLimits.min, Math.round(frame.y))),
+    width,
+    height,
+  };
+}
+
+export function cropFrameForZoom({
+  aspectRatio,
+  currentFrame,
+  source,
+  zoom,
+}: {
+  aspectRatio: number;
+  currentFrame: CropFrame;
+  source: ImageDimensions;
+  zoom: number;
+}): CropFrame {
+  const safeAspectRatio = Math.max(0.01, aspectRatio);
+  const safeZoom = Math.max(ATHLETE_IMAGE_CROP_ZOOM_LIMITS.min, Math.min(ATHLETE_IMAGE_CROP_ZOOM_LIMITS.max, Number.isFinite(zoom) ? zoom : 1));
+  const baseFrame = centeredCropFrame(source, safeAspectRatio);
+  const centerX = currentFrame.x + currentFrame.width / 2;
+  const centerY = currentFrame.y + currentFrame.height / 2;
+  const nextWidth = Math.max(64, Math.round(baseFrame.width / safeZoom));
+  const nextHeight = Math.max(64, Math.round(nextWidth / safeAspectRatio));
+
+  return clampZoomableCropFrame(
+    {
+      x: Math.round(centerX - nextWidth / 2),
+      y: Math.round(centerY - nextHeight / 2),
+      width: nextWidth,
+      height: nextHeight,
+    },
+    source,
+  );
+}
+
 export function outputFilename(
   inputName: string,
   kind: AthleteImageKind,
@@ -143,6 +218,22 @@ export function cropOutputDimensionsForFrame(preset: AthleteImageCropPreset, fra
   return {
     width,
     height: Math.max(preset.outputHeight, Math.round(width / preset.aspectRatio)),
+  };
+}
+
+export function cropFrameImagePlacement(source: ImageDimensions, frame: CropFrame, output: ImageDimensions): CropFrameImagePlacement {
+  const sourceWidth = Math.max(1, source.width);
+  const sourceHeight = Math.max(1, source.height);
+  const frameWidth = Math.max(1, frame.width);
+  const frameHeight = Math.max(1, frame.height);
+  const outputWidth = Math.max(1, output.width);
+  const outputHeight = Math.max(1, output.height);
+
+  return {
+    x: ((0 - frame.x) / frameWidth) * outputWidth,
+    y: ((0 - frame.y) / frameHeight) * outputHeight,
+    width: (sourceWidth / frameWidth) * outputWidth,
+    height: (sourceHeight / frameHeight) * outputHeight,
   };
 }
 
@@ -188,17 +279,13 @@ export function cropImageFile(
       return;
     }
 
-    context.drawImage(
-      image,
-      frame.x,
-      frame.y,
-      frame.width,
-      frame.height,
-      0,
-      0,
-      outputDimensions.width,
-      outputDimensions.height,
-    );
+    const sourceDimensions = {
+      width: image.naturalWidth || image.width,
+      height: image.naturalHeight || image.height,
+    };
+    const placement = cropFrameImagePlacement(sourceDimensions, frame, outputDimensions);
+    context.clearRect(0, 0, outputDimensions.width, outputDimensions.height);
+    context.drawImage(image, placement.x, placement.y, placement.width, placement.height);
     const hasTransparency = canvasHasTransparency(context, outputDimensions.width, outputDimensions.height);
 
     void encodeCanvasForAthleteImage(canvas, preset, hasTransparency)

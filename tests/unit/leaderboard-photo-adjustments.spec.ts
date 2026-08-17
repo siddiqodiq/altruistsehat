@@ -8,8 +8,10 @@ import {
   compactPhotoForegroundAdjustmentStyle,
   compactPhotoTreatmentForImage,
   compactPresetPreviewHeightPx,
+  exportPhotoAdjustmentFromDrag,
   fullFramePhotoAdjustmentStyle,
   resolveAthletePhotoAdjustment,
+  STORY_EXPORT_LAYOUT_MODES,
 } from "../../src/lib/leaderboard/photo-adjustments";
 import type { RankedAthlete } from "../../src/lib/leaderboard/types";
 
@@ -127,6 +129,24 @@ test("compact foreground photo style allows flexible zoom-out over gradient back
     transform: "translate(145%, -150%) scale(5)",
     transformOrigin: "center center",
   });
+});
+
+test("export photo drag follows the cursor direction for every story layout", () => {
+  for (const layoutMode of STORY_EXPORT_LAYOUT_MODES) {
+    expect(
+      exportPhotoAdjustmentFromDrag({
+        currentX: 128,
+        currentY: 72,
+        layoutMode,
+        previewScale: 0.28,
+        startAdjustment: { zoom: 1.25, x: 10, y: -5 },
+        startX: 100,
+        startY: 100,
+        targetHeight: 800,
+        targetWidth: 400,
+      }),
+    ).toEqual({ zoom: 1.25, x: 35, y: -17.5 });
+  }
 });
 
 test("compact photo treatment detects transparent cutout intent from local and uploaded image URLs", () => {

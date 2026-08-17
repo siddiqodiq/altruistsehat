@@ -26,11 +26,17 @@ import { LeaderboardCanvas } from "./LeaderboardCanvas";
 import { resolveUsableAthletePhotoUrl } from "@/lib/athletes/photo-url";
 import { initialsForName } from "@/lib/leaderboard/images";
 import { buildBumpChartData, leaderboardAthleteKey, type BumpChartData } from "@/lib/leaderboard/bump-chart";
-import { LEADERBOARD_CATEGORIES, type LeaderboardCategoryId } from "@/lib/leaderboard/categories";
+import {
+  categoryConfigForId,
+  type LeaderboardCategoryId,
+  type LeaderboardMetricOption,
+  type LeaderboardSportOption,
+} from "@/lib/leaderboard/categories";
 import { calculateWeeklyComparison, formatMetricValue } from "@/lib/leaderboard/metrics";
 import {
   clampExportPhotoAdjustment,
   EXPORT_PHOTO_ADJUSTMENT_LIMITS,
+  exportPhotoAdjustmentFromDrag,
   resolveAthletePhotoAdjustment,
   STORY_EXPORT_LAYOUT_MODES,
 } from "@/lib/leaderboard/photo-adjustments";
@@ -45,6 +51,7 @@ import {
   type MetricType,
   type OutputFormat,
   type RankedAthlete,
+  type SportType,
 } from "@/lib/leaderboard/types";
 import { displayWeekLabel, STORY_FORMAT } from "@/lib/leaderboard/dashboard-state";
 import { defaultExportPhotoAdjustment, type ExportAthleteSelection, type ExportAthleteSelectionOption } from "@/lib/leaderboard/export-client";
@@ -112,6 +119,7 @@ export function RankBadge({ rank, size = "md" }: { rank?: number; size?: "md" | 
 
 const categoryIcons: Record<LeaderboardCategoryId, LucideIcon> = {
   running: Footprints,
+  running_elevation_gain: Footprints,
   cycling: Bike,
   swimming: Waves,
   weight_training: Dumbbell,
@@ -123,21 +131,41 @@ export interface CategorySummary {
   total: number;
 }
 
+function metricTableColumnLabel(metric: MetricType): string {
+  if (metric === "time_minutes") {
+    return "Waktu";
+  }
+
+  if (metric === "elevation_m") {
+    return "Elevasi";
+  }
+
+  return "Jarak";
+}
+
 export function CategorySwitch({
+  metrics,
   selectedCategory,
+  sportOptions,
   summaries = {},
-  onSelect,
+  onMetricSelect,
+  onSportSelect,
   isLoading = false,
   hasError = false,
 }: {
+  metrics: LeaderboardMetricOption[];
   selectedCategory: LeaderboardCategoryId;
+  sportOptions: LeaderboardSportOption[];
   summaries?: Partial<Record<LeaderboardCategoryId, CategorySummary>>;
-  onSelect: (category: LeaderboardCategoryId) => void;
+  onMetricSelect: (category: LeaderboardCategoryId) => void;
+  onSportSelect: (sport: SportType) => void;
   isLoading?: boolean;
   hasError?: boolean;
 }) {
+  const selectedCategoryConfig = categoryConfigForId(selectedCategory);
+
   function handleKeyDown(event: KeyboardEvent<HTMLDivElement>) {
-    const currentIndex = LEADERBOARD_CATEGORIES.findIndex((category) => category.id === selectedCategory);
+    const currentIndex = sportOptions.findIndex((option) => option.sportType === selectedCategoryConfig.sportType);
     if (currentIndex < 0) {
       return;
     }
@@ -148,8 +176,8 @@ export function CategorySwitch({
     }
 
     event.preventDefault();
-    const nextIndex = (currentIndex + direction + LEADERBOARD_CATEGORIES.length) % LEADERBOARD_CATEGORIES.length;
-    onSelect(LEADERBOARD_CATEGORIES[nextIndex].id);
+    const nextIndex = (currentIndex + direction + sportOptions.length) % sportOptions.length;
+    onSportSelect(sportOptions[nextIndex].sportType);
   }
 
   return (
@@ -159,10 +187,12 @@ export function CategorySwitch({
         onKeyDown={handleKeyDown}
         role="tablist"
       >
-        {LEADERBOARD_CATEGORIES.map((category) => {
-          const Icon = categoryIcons[category.id];
-          const isActive = selectedCategory === category.id;
-          const summary = summaries[category.id];
+        {sportOptions.map((option) => {
+          const isActive = selectedCategoryConfig.sportType === option.sportType;
+          const displayCategoryId = isActive ? selectedCategory : option.defaultCategoryId;
+          const category = categoryConfigForId(displayCategoryId);
+          const Icon = categoryIcons[option.defaultCategoryId];
+          const summary = summaries[displayCategoryId];
           const metric = summary?.metric ?? category.metric;
           const total = formatMetricValue(summary?.total, metric);
           const athletes = summary?.athleteCount ?? 0;
@@ -176,8 +206,8 @@ export function CategorySwitch({
                   ? "bg-primary-brown text-white shadow-[0_16px_38px_rgb(90,46,23,0.24)] md:flex-[1.35]"
                   : "border-r border-secondary-sand/70 bg-white text-primary-charcoal last:border-r-0 hover:bg-primary-beige/70 dark:border-zinc-800 dark:bg-zinc-900 dark:text-gray-100 dark:hover:bg-zinc-800",
               )}
-              key={category.id}
-              onClick={() => onSelect(category.id)}
+              key={option.sportType}
+              onClick={() => onSportSelect(option.sportType)}
               role="tab"
               tabIndex={isActive ? 0 : -1}
               type="button"
@@ -197,7 +227,7 @@ export function CategorySwitch({
                     isActive ? "text-white" : "text-primary-brown dark:text-secondary-sand",
                   )}
                 >
-                  {category.label}
+                  {option.sportLabel}
                 </span>
                 {isLoading ? (
                   <span
@@ -214,6 +244,36 @@ export function CategorySwitch({
           );
         })}
       </div>
+      {metrics.length > 1 ? (
+        <div
+          aria-label="Pilih ukuran leaderboard"
+          className="mt-3 inline-flex max-w-full overflow-x-auto rounded-xl border border-secondary-sand/70 bg-white/90 p-1 shadow-sm dark:border-zinc-800 dark:bg-zinc-900/90"
+          role="tablist"
+        >
+          {metrics.map((metric) => {
+            const isActive = metric.categoryId === selectedCategory;
+
+            return (
+              <button
+                aria-selected={isActive}
+                className={cn(
+                  "h-10 min-w-[8.5rem] rounded-lg px-4 text-sm font-black transition focus:outline-none focus:ring-2 focus:ring-primary-green/30",
+                  isActive
+                    ? "bg-primary-brown text-white shadow-[0_8px_18px_rgb(90,46,23,0.18)]"
+                    : "text-primary-charcoal/62 hover:bg-secondary-sand/35 dark:text-gray-300 dark:hover:bg-zinc-800",
+                )}
+                key={metric.categoryId}
+                onClick={() => onMetricSelect(metric.categoryId)}
+                role="tab"
+                tabIndex={isActive ? 0 : -1}
+                type="button"
+              >
+                {metric.metricLabel}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
     </section>
   );
 }
@@ -594,7 +654,7 @@ export function LeaderboardTable({
             <tr className="border-b border-secondary-sand/50 bg-white text-xs font-black uppercase tracking-[0.08em] text-primary-charcoal/45 dark:border-zinc-800 dark:bg-zinc-900 dark:text-gray-500">
               <th className="sticky left-0 z-30 whitespace-nowrap bg-inherit px-5 py-4 text-left">Peringkat</th>
               <th className="sticky left-[80px] z-30 whitespace-nowrap bg-inherit px-5 py-4 text-left">Anggota</th>
-              <th className="whitespace-nowrap px-5 py-4 text-right">{spec.metric === "time_minutes" ? "Waktu" : "Jarak"}</th>
+              <th className="whitespace-nowrap px-5 py-4 text-right">{metricTableColumnLabel(spec.metric)}</th>
               <th className="whitespace-nowrap px-5 py-4 text-center">Perubahan</th>
               <th className="whitespace-nowrap px-5 py-4 text-left">Tren</th>
             </tr>
@@ -1830,16 +1890,22 @@ export function ExportPreviewModal({
       return;
     }
 
-    const movementX = ((event.clientX - dragState.startX) / previewScale / dragState.width) * 100;
-    const movementY = ((event.clientY - dragState.startY) / previewScale / dragState.height) * 100;
-    const direction = dragState.layoutMode === "podiumTop10" ? -1 : 1;
-
     event.preventDefault();
-    onExportPhotoAdjustmentChange(dragState.layoutMode, dragState.athleteId, {
-      ...dragState.startAdjustment,
-      x: clampPhotoAdjustmentCoordinate(dragState.startAdjustment.x + movementX * direction),
-      y: clampPhotoAdjustmentCoordinate(dragState.startAdjustment.y + movementY * direction),
-    });
+    onExportPhotoAdjustmentChange(
+      dragState.layoutMode,
+      dragState.athleteId,
+      exportPhotoAdjustmentFromDrag({
+        currentX: event.clientX,
+        currentY: event.clientY,
+        layoutMode: dragState.layoutMode,
+        previewScale,
+        startAdjustment: dragState.startAdjustment,
+        startX: dragState.startX,
+        startY: dragState.startY,
+        targetHeight: dragState.height,
+        targetWidth: dragState.width,
+      }),
+    );
   }
 
   function handleExportPreviewPointerUp(event: PointerEvent<HTMLDivElement>) {

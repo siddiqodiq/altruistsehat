@@ -110,6 +110,7 @@ test("delete member uses an Indonesian confirmation dialog instead of window con
 test("image upload opens crop modal and defers Supabase upload until save", () => {
   const source = athleteDatabaseSource();
   const imageSelectionStart = source.indexOf("function handleImageSelection");
+  const applyCropStart = source.indexOf("async function applyCropSelection", imageSelectionStart);
   const saveStart = source.indexOf("async function handleSave");
   const saveEnd = source.indexOf("async function handleDelete", saveStart);
 
@@ -117,12 +118,15 @@ test("image upload opens crop modal and defers Supabase upload until save", () =
   expect(source).toContain("pendingProfileFile");
   expect(source).toContain("pendingPodiumFile");
   expect(imageSelectionStart).toBeGreaterThan(-1);
+  expect(applyCropStart).toBeGreaterThan(imageSelectionStart);
   expect(saveStart).toBeGreaterThan(-1);
 
-  const selectionBlock = source.slice(imageSelectionStart, saveStart);
+  const selectionBlock = source.slice(imageSelectionStart, applyCropStart);
   const saveBlock = source.slice(saveStart, saveEnd);
 
   expect(selectionBlock).not.toContain("uploadAthleteImage(");
+  expect(selectionBlock).not.toContain("shouldUploadAthleteImageDirectly");
+  expect(selectionBlock).not.toContain("applyDirectImageSelection");
   expect(saveBlock).toContain('uploadAthleteImage(form.pendingProfileFile, "athlete-profile")');
   expect(saveBlock).toContain('uploadAthleteImage(form.pendingPodiumFile, "athlete-podium")');
   expect(saveBlock).toContain("form.pendingSportPodiumFiles[option.key]");

@@ -74,6 +74,9 @@ test("leaderboard admin uses compact controls with a progressive week picker mod
   expect(adminControls).toContain("setWeekPickerOpen(true)");
   expect(adminControls).toContain("Periode");
   expect(adminManager).toContain("Pilih olahraga");
+  expect(adminManager).toContain("Pilih ukuran");
+  expect(adminManager).toContain("metricOptionsForSport");
+  expect(adminManager).toContain("categoryForSportMetric");
   expect(adminManager).toContain("<select");
   expect(adminControls).not.toContain("calendar.days.map");
   expect(adminControls).not.toContain("weekdayLabels.map");

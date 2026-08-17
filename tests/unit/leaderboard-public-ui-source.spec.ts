@@ -75,6 +75,24 @@ test("public leaderboard has an explicit chart range filter with one-month copy 
   expect(ui).toContain("buildBumpChartData(snapshots, { maxWeeks })");
 });
 
+test("public leaderboard keeps Running as one sport tab and exposes metric choices separately", () => {
+  const page = source("src/components/leaderboard/LeaderboardPublicPage.tsx");
+  const ui = source("src/components/leaderboard/LeaderboardUi.tsx");
+
+  expect(page).toContain("leaderboardSportOptions");
+  expect(page).toContain("metricOptionsForSport");
+  expect(page).toContain("categoryForSportMetric");
+  expect(page).toContain("Total Elevation Gain");
+  expect(page).toContain('query.set("category", category)');
+  expect(page).toContain("metrics={metricOptions}");
+
+  expect(ui).toContain("sportOptions");
+  expect(ui).toContain("onSportSelect");
+  expect(ui).toContain("onMetricSelect");
+  expect(ui).toContain('aria-label="Pilih ukuran leaderboard"');
+  expect(ui).toContain('role="tablist"');
+});
+
 test("public athlete profile route is server-rendered and uses username lookup", () => {
   const page = source("src/app/atlet/[username]/page.tsx");
 

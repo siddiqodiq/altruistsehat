@@ -121,6 +121,17 @@ type MetricValueFormatOptions = {
   maximumFractionDigits?: number;
 };
 
+function metricFractionDigits(metric: MetricType, options: MetricValueFormatOptions): Required<MetricValueFormatOptions> {
+  const defaultDigits = metric === "elevation_m"
+    ? { minimumFractionDigits: 0, maximumFractionDigits: 0 }
+    : { minimumFractionDigits: 2, maximumFractionDigits: 2 };
+
+  return {
+    minimumFractionDigits: options.minimumFractionDigits ?? defaultDigits.minimumFractionDigits,
+    maximumFractionDigits: options.maximumFractionDigits ?? defaultDigits.maximumFractionDigits,
+  };
+}
+
 export type MetricDisplayParts = {
   primary: string;
   accent: string;
@@ -147,7 +158,7 @@ export function formatMetricDisplayParts(
     return { primary: `${minutes} menit`, accent: "" };
   }
 
-  const { minimumFractionDigits = 2, maximumFractionDigits = 2 } = options;
+  const { minimumFractionDigits, maximumFractionDigits } = metricFractionDigits(metric, options);
   const safeValue = Math.max(0, safeMetricNumber(value));
 
   return {
@@ -165,7 +176,7 @@ export function formatMetricValue(
     return formatTimeMinutes(value);
   }
 
-  const { minimumFractionDigits = 2, maximumFractionDigits = 2 } = options;
+  const { minimumFractionDigits, maximumFractionDigits } = metricFractionDigits(metric, options);
   const safeValue = Math.max(0, safeMetricNumber(value));
   return `${formatMetricNumber(safeValue, maximumFractionDigits, minimumFractionDigits)} ${metricUnit(metric)}`;
 }

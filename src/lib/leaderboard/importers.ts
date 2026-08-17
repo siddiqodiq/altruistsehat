@@ -74,7 +74,12 @@ export function parseSpreadsheetRows(rows: unknown[][], metric: MetricType): Ath
 
   return cleanRows
     .slice(1)
-    .map((row) => createAthlete(row[nameIndex], row[valueIndex], metric))
+    .map((row) => {
+      const value = row.length > headers.length && valueIndex === headers.length - 1
+        ? row.slice(valueIndex).join(",")
+        : row[valueIndex];
+      return createAthlete(row[nameIndex], value, metric);
+    })
     .filter((row): row is AthleteEntry => Boolean(row));
 }
 

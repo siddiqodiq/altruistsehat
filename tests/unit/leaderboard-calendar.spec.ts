@@ -84,16 +84,22 @@ test("buildSeasonMonthCalendar exposes selectable Monday-Sunday week rows", () =
   ]);
 });
 
-test("defaultSportMetricOptions exposes sport first while keeping one default metric per current category", () => {
-  expect(defaultSportMetricOptions().map((option) => option.sportLabel)).toEqual([
-    "Running",
-    "Cycling",
-    "Swimming",
-    "Weight Training",
+test("defaultSportMetricOptions exposes sport-first metric options for every leaderboard category", () => {
+  expect(defaultSportMetricOptions().map((option) => `${option.sportLabel}:${option.metricLabel}`)).toEqual([
+    "Running:Distance",
+    "Running:Elevation Gain",
+    "Cycling:Distance",
+    "Swimming:Distance",
+    "Weight Training:Time",
   ]);
 
   expect(defaultSportMetricOptions().find((option) => option.categoryId === "running")).toMatchObject({
     metricLabel: "Distance",
     templateId: "running_weekly_mileage",
+  });
+
+  expect(defaultSportMetricOptions().find((option) => option.categoryId === "running_elevation_gain")).toMatchObject({
+    metricLabel: "Elevation Gain",
+    templateId: "running_elevation_gain",
   });
 });
