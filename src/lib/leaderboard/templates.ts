@@ -158,6 +158,24 @@ function endOfMonth(date: Date): Date {
   return addDays(new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth() + 1, 1)), -1);
 }
 
+function startOfCalendarWeek(date: Date): Date {
+  const dayOffset = (date.getUTCDay() + 6) % 7;
+  return addDays(date, -dayOffset);
+}
+
+function dayDifference(left: Date, right: Date): number {
+  return Math.round((left.getTime() - right.getTime()) / dayMs);
+}
+
+function seasonWeekRangeForDate(seasonYear: string, date: Date): SeasonWeekRange {
+  const yearNumber = normalizedPositiveInteger(seasonYear, Number(DEFAULT_SEASON_YEAR));
+  const firstSunday = firstSundayOfYear(yearNumber);
+  const weekOneStart = addDays(firstSunday, -6);
+  const weekIndex = Math.floor(dayDifference(date, weekOneStart) / 7) + 1;
+
+  return deriveSeasonWeekRange(seasonYear, String(Math.max(1, weekIndex)));
+}
+
 export interface SeasonWeekRange {
   weekIndex: number;
   weekValue: string;
@@ -173,6 +191,31 @@ export interface SeasonWeekCalendar {
   monthStartIso: string;
   activeRange: SeasonWeekRange;
   weeks: SeasonWeekRange[];
+}
+
+export interface SeasonMonthCalendarDay {
+  compactWeekRange: string;
+  dateIso: string;
+  dayOfMonth: string;
+  inMonth: boolean;
+  isActiveWeek: boolean;
+  weekValue: string;
+}
+
+export interface SeasonMonthCalendarWeekRow {
+  compactWeekRange: string;
+  days: SeasonMonthCalendarDay[];
+  isActiveWeek: boolean;
+  weekValue: string;
+}
+
+export interface SeasonMonthCalendar {
+  activeRange: SeasonWeekRange;
+  days: SeasonMonthCalendarDay[];
+  monthLabel: string;
+  monthStartIso: string;
+  weekRows: SeasonMonthCalendarWeekRow[];
+  weekdayLabels: string[];
 }
 
 export function deriveSeasonWeekRange(seasonYear: string, weekInput: string): SeasonWeekRange {
@@ -213,6 +256,51 @@ export function buildSeasonWeekCalendar(
     monthStartIso: isoDate(monthStart),
     activeRange,
     weeks,
+  };
+}
+
+export function buildSeasonMonthCalendar(
+  seasonYear: string,
+  activeWeekInput: string,
+  monthAnchorIso?: string,
+): SeasonMonthCalendar {
+  const activeRange = deriveSeasonWeekRange(seasonYear, activeWeekInput);
+  const monthAnchor = monthAnchorIso ? dateFromIso(monthAnchorIso) : dateFromIso(activeRange.startDateIso);
+  const monthStart = startOfMonth(monthAnchor);
+  const calendarStart = startOfCalendarWeek(monthStart);
+  const activeWeekValue = activeRange.weekValue;
+  const days = Array.from({ length: 42 }, (_, index) => {
+    const date = addDays(calendarStart, index);
+    const range = seasonWeekRangeForDate(seasonYear, date);
+
+    return {
+      compactWeekRange: range.compactDateRange,
+      dateIso: isoDate(date),
+      dayOfMonth: day(date),
+      inMonth: date.getUTCMonth() === monthAnchor.getUTCMonth() && date.getUTCFullYear() === monthAnchor.getUTCFullYear(),
+      isActiveWeek: range.weekValue === activeWeekValue,
+      weekValue: range.weekValue,
+    };
+  });
+  const weekRows = Array.from({ length: days.length / 7 }, (_, index) => {
+    const rowDays = days.slice(index * 7, index * 7 + 7);
+    const firstDay = rowDays[0];
+
+    return {
+      compactWeekRange: firstDay.compactWeekRange,
+      days: rowDays,
+      isActiveWeek: firstDay.weekValue === activeWeekValue,
+      weekValue: firstDay.weekValue,
+    };
+  });
+
+  return {
+    activeRange,
+    days,
+    monthLabel: `${monthTitle(monthAnchor)} ${monthAnchor.getUTCFullYear()}`,
+    monthStartIso: isoDate(monthStart),
+    weekRows,
+    weekdayLabels: ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
   };
 }
 

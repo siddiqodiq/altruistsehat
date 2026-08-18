@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { requireAdminAuth } from "@/lib/supabase/auth-server";
 import { errorMessage } from "@/lib/supabase/errors";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 import { ATHLETE_STORAGE_BUCKETS, ensureAthleteStorageBuckets } from "@/lib/supabase/storage";
@@ -7,6 +8,11 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET() {
+  const unauthorized = await requireAdminAuth();
+  if (unauthorized) {
+    return unauthorized;
+  }
+
   try {
     const supabase = createSupabaseServiceClient();
     const validation = await ensureAthleteStorageBuckets(supabase);

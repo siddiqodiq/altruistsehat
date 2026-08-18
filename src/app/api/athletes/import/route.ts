@@ -1,6 +1,16 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import {
+  athleteDefaultPassword,
+  deleteAthleteUserAccounts,
+  duplicateUsernameMessage,
+  findDuplicateUsernames,
+  isDuplicateAuthUserError,
+  provisionAthleteUserAccounts,
+} from "@/lib/athletes/accounts";
 import { normalizeAthleteName } from "@/lib/athletes/normalize";
+import { authUsernameEmailDomain, deriveUsernameFromAthleteName } from "@/lib/auth/username";
+import { requireAdminAuth } from "@/lib/supabase/auth-server";
 import { errorMessage } from "@/lib/supabase/errors";
 import {
   createSupabaseServiceClient,
@@ -20,6 +30,7 @@ const ImportPayloadSchema = z.object({
 interface ImportCandidate {
   name: string;
   normalizedName: string;
+  username: string;
 }
 
 interface ImportSummary {
@@ -40,6 +51,7 @@ function buildImportCandidates(names: string[]): {
   for (const rawName of names) {
     const name = rawName.trim();
     const normalizedName = normalizeAthleteName(name);
+    const username = deriveUsernameFromAthleteName(name);
     if (!normalizedName) {
       continue;
     }
@@ -50,13 +62,18 @@ function buildImportCandidates(names: string[]): {
     }
 
     seen.add(normalizedName);
-    candidates.push({ name, normalizedName });
+    candidates.push({ name, normalizedName, username });
   }
 
   return { candidates, fileDuplicateCount };
 }
 
 export async function POST(request: Request) {
+  const unauthorized = await requireAdminAuth();
+  if (unauthorized) {
+    return unauthorized;
+  }
+
   try {
     const body = await request.json().catch(() => null);
     const parsed = ImportPayloadSchema.safeParse(body);
@@ -74,7 +91,7 @@ export async function POST(request: Request) {
     const normalizedNames = candidates.map((candidate) => candidate.normalizedName);
     const { data: existingRows, error: existingError } = await supabase
       .from("athletes")
-      .select("normalized_name")
+      .select("normalized_name,username")
       .in("normalized_name", normalizedNames);
 
     if (existingError) {
@@ -84,16 +101,30 @@ export async function POST(request: Request) {
     const existingNames = new Set((existingRows ?? []).map((row) => String(row.normalized_name)));
     const newCandidates = candidates.filter((candidate) => !existingNames.has(candidate.normalizedName));
     const skippedDuplicates = fileDuplicateCount + (candidates.length - newCandidates.length);
-    const insertRows = newCandidates.map((candidate) => ({
-      name: candidate.name,
-      normalized_name: candidate.normalizedName,
-      podium_photo_adjustments: {},
-      sport_podium_photo_urls: {},
-      profile_photo_url: null,
-      podium_photo_url: null,
-    }));
+    const duplicateUsernames = findDuplicateUsernames(newCandidates.map((candidate) => candidate.username));
+    if (duplicateUsernames.length) {
+      return NextResponse.json({ error: duplicateUsernameMessage(duplicateUsernames) }, { status: 409 });
+    }
 
-    if (!insertRows.length) {
+    const newUsernames = newCandidates.map((candidate) => candidate.username);
+    if (newUsernames.length) {
+      const { data: existingUsernameRows, error: existingUsernameError } = await supabase
+        .from("athletes")
+        .select("username")
+        .in("username", newUsernames);
+      if (existingUsernameError) {
+        throw existingUsernameError;
+      }
+
+      const existingUsernames = (existingUsernameRows ?? [])
+        .map((row) => String(row.username ?? ""))
+        .filter(Boolean);
+      if (existingUsernames.length) {
+        return NextResponse.json({ error: duplicateUsernameMessage(findDuplicateUsernames([...newUsernames, ...existingUsernames])) }, { status: 409 });
+      }
+    }
+
+    if (!newCandidates.length) {
       const summary: ImportSummary = {
         totalRows,
         created: 0,
@@ -102,6 +133,30 @@ export async function POST(request: Request) {
       };
       return NextResponse.json({ summary }, { status: 200 });
     }
+
+    let authUserIdsByUsername = new Map<string, string>();
+    try {
+      authUserIdsByUsername = await provisionAthleteUserAccounts(supabase, newCandidates, {
+        defaultPassword: athleteDefaultPassword(),
+        emailDomain: authUsernameEmailDomain(),
+      });
+    } catch (error) {
+      if (isDuplicateAuthUserError(error)) {
+        return NextResponse.json({ error: duplicateUsernameMessage(newUsernames) }, { status: 409 });
+      }
+      throw error;
+    }
+
+    const insertRows = newCandidates.map((candidate) => ({
+      name: candidate.name,
+      normalized_name: candidate.normalizedName,
+      username: candidate.username,
+      auth_user_id: authUserIdsByUsername.get(candidate.username),
+      podium_photo_adjustments: {},
+      sport_podium_photo_urls: {},
+      profile_photo_url: null,
+      podium_photo_url: null,
+    }));
 
     let { error: insertError } = await supabase.from("athletes").insert(insertRows);
     if (insertError && isMissingAthletePodiumPhotoAdjustmentsColumn(insertError)) {
@@ -112,6 +167,7 @@ export async function POST(request: Request) {
     }
 
     if (insertError) {
+      await deleteAthleteUserAccounts(supabase, authUserIdsByUsername.values());
       const summary: ImportSummary = {
         totalRows,
         created: 0,

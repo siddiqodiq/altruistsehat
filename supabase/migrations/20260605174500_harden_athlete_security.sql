@@ -17,3 +17,6 @@ for all
 to service_role
 using (true)
 with check (true);
+
+grant usage on schema public to service_role;
+grant select, insert, update, delete on table public.athletes to service_role;

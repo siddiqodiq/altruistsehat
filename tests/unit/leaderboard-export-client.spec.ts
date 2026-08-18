@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
 import {
+  downloadBlob,
   exportAthleteSelectionOptions,
+  exportTrendGraphValues,
   specWithDatabaseAthletePhotos,
   specWithExportAthleteSelection,
 } from "../../src/lib/leaderboard/export-client";
@@ -25,6 +27,11 @@ const baseSpec: LeaderboardSpec = {
     },
   ],
 };
+
+test("exportTrendGraphValues keeps the latest point plus four previous weekly points", () => {
+  expect(exportTrendGraphValues([10, 20, 30, 40, 50, 60, 70, 80])).toEqual([40, 50, 60, 70, 80]);
+  expect(exportTrendGraphValues([10, 20, 30, 40, 50, 60, 70, 80, 90])).toEqual([50, 60, 70, 80, 90]);
+});
 
 test("specWithDatabaseAthletePhotos fills stale snapshot athlete photos from athlete database records", () => {
   const hydrated = specWithDatabaseAthletePhotos(baseSpec, [
@@ -61,6 +68,100 @@ test("specWithDatabaseAthletePhotos fills stale snapshot athlete photos from ath
   expect(hydrated.athletes[0].id).toBe("leaderboard-rakha");
   expect(hydrated.athletes[0].name).toBe("Rakha Maulana");
   expect(hydrated.athletes[0].value).toBe(20.9);
+});
+
+test("specWithDatabaseAthletePhotos cache-busts sport podium photos with the database update timestamp", () => {
+  const hydrated = specWithDatabaseAthletePhotos(
+    {
+      ...baseSpec,
+      sportType: "Weight Training",
+      athletes: [
+        {
+          id: "leaderboard-syahrizal",
+          name: "Syahrizal Mahfiridho",
+          value: 550,
+          sportPodiumPhotoUrls: {
+            weight_training: "https://cdn.example.com/stale-weight.webp",
+          },
+        },
+      ],
+    },
+    [
+      {
+        id: "database-syahrizal",
+        name: "Syahrizal Mahfiridho",
+        normalizedName: "syahrizal mahfiridho",
+        profilePhotoUrl: "https://cdn.example.com/syahrizal-profile.webp",
+        podiumPhotoUrl: "https://cdn.example.com/syahrizal-podium.webp",
+        sportPodiumPhotoUrls: {
+          weight_training: "https://cdn.example.com/syahrizal-weight.webp",
+        },
+        updatedAt: "2026-07-06T08:15:00.000Z",
+      },
+    ],
+  );
+
+  expect(hydrated.athletes[0].profilePhotoUrl).toBe(
+    "https://cdn.example.com/syahrizal-profile.webp?as_v=2026-07-06T08%3A15%3A00.000Z",
+  );
+  expect(hydrated.athletes[0].podiumPhotoUrl).toBe(
+    "https://cdn.example.com/syahrizal-podium.webp?as_v=2026-07-06T08%3A15%3A00.000Z",
+  );
+  expect(hydrated.athletes[0].sportPodiumPhotoUrls).toEqual({
+    weight_training: "https://cdn.example.com/syahrizal-weight.webp?as_v=2026-07-06T08%3A15%3A00.000Z",
+  });
+});
+
+test("specWithDatabaseAthletePhotos skips Strava CDN athlete photos that cannot be embedded reliably", () => {
+  const hydrated = specWithDatabaseAthletePhotos(baseSpec, [
+    {
+      id: "database-rakha",
+      name: "Rakha Maulana",
+      normalizedName: "rakha maulana",
+      profilePhotoUrl: "https://dgalywyr863hv.cloudfront.net/pictures/athletes/107592715/37954614/2/large.jpg",
+      updatedAt: "2026-08-10T08:09:37.583388+00:00",
+    },
+  ]);
+
+  expect(hydrated.athletes[0]).toMatchObject({
+    athleteId: "database-rakha",
+    normalizedName: "rakha maulana",
+  });
+  expect(hydrated.athletes[0].profilePhotoUrl).toBeUndefined();
+  expect(hydrated.athletes[0].avatarDataUrl).toBeUndefined();
+});
+
+test("specWithDatabaseAthletePhotos treats database sport podium photos as the source of truth", () => {
+  const hydrated = specWithDatabaseAthletePhotos(
+    {
+      ...baseSpec,
+      athletes: [
+        {
+          id: "leaderboard-syahrizal",
+          name: "Syahrizal Mahfiridho",
+          value: 550,
+          sportPodiumPhotoUrls: {
+            weight_training: "https://cdn.example.com/stale-weight.webp",
+          },
+        },
+      ],
+    },
+    [
+      {
+        id: "database-syahrizal",
+        name: "Syahrizal Mahfiridho",
+        normalizedName: "syahrizal mahfiridho",
+        podiumPhotoUrl: "https://cdn.example.com/syahrizal-podium.webp",
+        sportPodiumPhotoUrls: {},
+        updatedAt: "2026-07-06T08:15:00.000Z",
+      },
+    ],
+  );
+
+  expect(hydrated.athletes[0].sportPodiumPhotoUrls).toEqual({});
+  expect(hydrated.athletes[0].podiumPhotoUrl).toBe(
+    "https://cdn.example.com/syahrizal-podium.webp?as_v=2026-07-06T08%3A15%3A00.000Z",
+  );
 });
 
 test("specWithExportAthleteSelection builds a ranked top-N export spec without changing the original total", () => {
@@ -151,4 +252,48 @@ test("exportAthleteSelectionOptions exposes podium top ten plus top five through
     ["top2", "Top 2", 2],
     ["top1", "Top 1", 1],
   ]);
+});
+
+test("downloadBlob defers object URL cleanup so the first browser download can start", () => {
+  const originalDocument = globalThis.document;
+  const originalUrl = globalThis.URL;
+  const originalSetTimeout = globalThis.setTimeout;
+  const events: string[] = [];
+  const anchor = {
+    click: () => events.push("click"),
+    remove: () => events.push("remove"),
+    download: "",
+    href: "",
+  } as unknown as HTMLAnchorElement;
+
+  globalThis.document = {
+    body: {
+      append: () => events.push("append"),
+    },
+    createElement: () => anchor,
+  } as unknown as Document;
+  globalThis.URL = {
+    createObjectURL: () => {
+      events.push("create");
+      return "blob:leaderboard";
+    },
+    revokeObjectURL: () => events.push("revoke"),
+  } as unknown as typeof URL;
+  globalThis.setTimeout = ((callback: TimerHandler) => {
+    events.push("timeout");
+    if (typeof callback === "function") {
+      callback();
+    }
+    return 1 as unknown as NodeJS.Timeout;
+  }) as unknown as typeof setTimeout;
+
+  try {
+    downloadBlob(new Blob(["png"]), "leaderboard-story.png");
+  } finally {
+    globalThis.document = originalDocument;
+    globalThis.URL = originalUrl;
+    globalThis.setTimeout = originalSetTimeout;
+  }
+
+  expect(events).toEqual(["create", "append", "click", "timeout", "remove", "revoke"]);
 });

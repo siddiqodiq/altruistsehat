@@ -116,7 +116,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: Request) {
-  const unauthorized = requireLeaderboardAdmin(request);
+  const unauthorized = await requireLeaderboardAdmin();
   if (unauthorized) {
     return unauthorized;
   }
@@ -162,7 +162,7 @@ export async function POST(request: Request) {
 }
 
 export async function DELETE(request: Request) {
-  const unauthorized = requireLeaderboardAdmin(request);
+  const unauthorized = await requireLeaderboardAdmin();
   if (unauthorized) {
     return unauthorized;
   }

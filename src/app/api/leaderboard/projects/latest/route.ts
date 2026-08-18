@@ -7,9 +7,18 @@ import {
   projectIdForCategory,
   templateIdForCategory,
 } from "@/lib/leaderboard/categories";
+import { hydrateLeaderboardProjectAthletePhotos } from "@/lib/leaderboard/project-athlete-photos";
 import { LeaderboardProjectStateSchema } from "@/lib/leaderboard/project-state";
+import { normalizeAthleteName } from "@/lib/athletes/normalize";
 import { errorMessage } from "@/lib/supabase/errors";
-import { createSupabaseServiceClient } from "@/lib/supabase/server";
+import {
+  athletePublicSelectColumns,
+  createSupabaseServiceClient,
+  isMissingAthletePodiumPhotoAdjustmentsColumn,
+  isMissingAthleteSportPodiumPhotoUrlsColumn,
+  mapPublicAthleteRow,
+  type AthleteRow,
+} from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -24,6 +33,44 @@ function projectError(message: string, error: unknown, status = 500) {
   const detail = errorMessage(error, "Unknown leaderboard project error");
   console.error("LEADERBOARD_PROJECT_SAVE_FAILED", { message, error: detail });
   return Response.json({ success: false, message, error: detail }, { status });
+}
+
+function publicAthletePhotoQuery(
+  supabase: ReturnType<typeof createSupabaseServiceClient>,
+  normalizedNames: string[],
+  options: { includePodiumPhotoAdjustments: boolean; includeSportPodiumPhotoUrls: boolean },
+) {
+  return supabase
+    .from("athletes")
+    .select(athletePublicSelectColumns(options))
+    .in("normalized_name", normalizedNames);
+}
+
+async function loadPublicAthletePhotosByName(
+  supabase: ReturnType<typeof createSupabaseServiceClient>,
+  names: string[],
+) {
+  const normalizedNames = Array.from(new Set(names.map(normalizeAthleteName).filter(Boolean)));
+  if (!normalizedNames.length) {
+    return [];
+  }
+
+  const options = { includePodiumPhotoAdjustments: true, includeSportPodiumPhotoUrls: true };
+  let { data, error } = await publicAthletePhotoQuery(supabase, normalizedNames, options);
+  if (error && isMissingAthletePodiumPhotoAdjustmentsColumn(error)) {
+    options.includePodiumPhotoAdjustments = false;
+    ({ data, error } = await publicAthletePhotoQuery(supabase, normalizedNames, options));
+  }
+  if (error && isMissingAthleteSportPodiumPhotoUrlsColumn(error)) {
+    options.includeSportPodiumPhotoUrls = false;
+    ({ data, error } = await publicAthletePhotoQuery(supabase, normalizedNames, options));
+  }
+
+  if (error) {
+    throw error;
+  }
+
+  return ((data ?? []) as unknown as AthleteRow[]).map(mapPublicAthleteRow);
 }
 
 export async function GET(request: NextRequest) {
@@ -45,9 +92,20 @@ export async function GET(request: NextRequest) {
     }
 
     const parsed = data?.state ? LeaderboardProjectStateSchema.safeParse(data.state) : undefined;
+    let project = parsed?.success ? parsed.data : null;
+    if (project) {
+      try {
+        project = await hydrateLeaderboardProjectAthletePhotos(project, (names) => loadPublicAthletePhotosByName(supabase, names));
+      } catch (photoError) {
+        console.error("LEADERBOARD_PROJECT_PHOTO_HYDRATION_FAILED", {
+          error: errorMessage(photoError, "Failed to hydrate leaderboard athlete photos."),
+        });
+      }
+    }
+
     return Response.json({
       success: true,
-      project: parsed?.success ? parsed.data : null,
+      project,
     });
   } catch (error) {
     return projectError("Failed to load leaderboard project", error);
@@ -55,7 +113,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-  const unauthorized = requireLeaderboardAdmin(request);
+  const unauthorized = await requireLeaderboardAdmin();
   if (unauthorized) {
     return unauthorized;
   }

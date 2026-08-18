@@ -1,7 +1,6 @@
 import { expect, test } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
-import { STORY_EXPORT_LAYOUT_MODES } from "../../src/lib/leaderboard/photo-adjustments";
 
 function source(pathname: string) {
   return fs.readFileSync(path.join(process.cwd(), pathname), "utf8");
@@ -40,7 +39,21 @@ test("athlete API routes accept and return podium photo adjustments", () => {
   expect(updateRoute).toContain("sportPodiumPhotoUrls");
   expect(updateRoute).toContain("podium_photo_adjustments");
   expect(updateRoute).toContain("sport_podium_photo_urls");
-  expect(lookupRoute).toContain("athleteSelectColumns");
+  expect(lookupRoute).toContain("athletePublicSelectColumns");
+});
+
+test("athlete photo payloads can explicitly clear stored photo URLs", () => {
+  const apiSource = source("src/lib/athletes/api.ts");
+  const appSource = source("src/components/athletes/AthleteDatabaseApp.tsx");
+  const createRoute = source("src/app/api/athletes/route.ts");
+  const updateRoute = source("src/app/api/athletes/[id]/route.ts");
+
+  expect(apiSource).toContain("profilePhotoUrl?: string | null");
+  expect(apiSource).toContain("podiumPhotoUrl?: string | null");
+  expect(appSource).toContain("profilePhotoUrl: form.profilePhotoUrl.trim() || null");
+  expect(appSource).toContain("podiumPhotoUrl: form.podiumPhotoUrl.trim() || null");
+  expect(createRoute).toContain("z.string().url().nullable().optional()");
+  expect(updateRoute).toContain("z.string().url().nullable().optional()");
 });
 
 test("athlete sport photo saves fail loudly when the Supabase sport column is missing", () => {
@@ -57,53 +70,24 @@ test("athlete sport photo saves fail loudly when the Supabase sport column is mi
   expect(updateRoute).toContain("{ status: 409 }");
 });
 
-test("athlete admin exposes sport-specific podium photo slots with default podium fallback", () => {
+test("athlete admin exposes sport-specific podium photo slots without fallback copy", () => {
   const appSource = source("src/components/athletes/AthleteDatabaseApp.tsx");
 
-  expect(appSource).toContain("Sport Podium Photos");
+  expect(appSource).toContain("Foto kegiatan");
   expect(appSource).toContain("SPORT_PODIUM_PHOTO_OPTIONS");
   expect(appSource).toContain("sportPodiumPhotoUrls");
   expect(appSource).toContain("sportPodiumPreviewUrls");
   expect(appSource).toContain("pendingSportPodiumFiles");
   expect(appSource).toContain("handleSportPodiumImageSelection");
-  expect(appSource).toContain("handleSportPodiumUrlChange");
-  expect(appSource).toContain("Default podium photo is used when a sport slot is empty.");
+  expect(appSource).toContain("handleClearSportPodiumPhoto");
+  expect(appSource).not.toContain("Default podium photo is used when a sport slot is empty.");
+  expect(appSource).not.toContain("Fallback");
 });
 
-test("athlete admin exposes persistent podium presets for every story layout", () => {
+test("athlete admin no longer exposes a podium presets editor (position tuning moved to export preview)", () => {
   const appSource = source("src/components/athletes/AthleteDatabaseApp.tsx");
 
-  expect(appSource).toContain("Podium Presets");
-  expect(appSource).toContain("podiumPhotoAdjustments");
-  expect(appSource).toContain("STORY_EXPORT_LAYOUT_MODES");
-  expect(STORY_EXPORT_LAYOUT_MODES).toEqual(["podiumTop10", "top5", "top4", "top3", "top2", "top1"]);
-  expect(appSource).toContain("Reset All");
-});
-
-test("athlete podium preset previews reflect compact export row height differences", () => {
-  const appSource = source("src/components/athletes/AthleteDatabaseApp.tsx");
-
-  expect(appSource).toContain("compactPresetPreviewHeightPx");
-  expect(appSource).toContain("compactExportAthleteCountForLayout");
-  expect(appSource).toContain("compactPhotoBackgroundAdjustmentStyle");
-  expect(appSource).toContain("compactPhotoForegroundAdjustmentStyle");
-  expect(appSource).toContain("compactPhotoTreatmentForImage");
-  expect(appSource).toContain("compactCutoutBackdropStyle");
-  expect(appSource).toContain("dual-layer-blend-foreground");
-  expect(appSource).toContain("cutout-podium-backdrop");
-  expect(appSource).toContain("data-fit-strategy");
-  expect(appSource).toContain('data-fit-strategy="dual-layer-background-fill"');
-  expect(appSource).toContain('data-image-layer="compact-photo-background"');
-  expect(appSource).toContain('data-image-layer="compact-photo-foreground"');
-  expect(appSource).toContain("podiumPreviewHasTransparency");
-  expect(appSource).toContain("data-export-row-height-preview");
-  expect(appSource).toContain("compactZoomMin");
-  expect(appSource).toContain("isCompactExportLayoutMode(layoutMode) ? compactZoomMin : 1");
-  expect(appSource).not.toContain('data-image-layer="portrait-safe-foreground"');
-  expect(appSource).not.toContain('data-crop="portrait-safe-foreground"');
-  expect(appSource).not.toContain("left-0 z-[1]");
-  expect(appSource).not.toContain("w-[56%]");
-  expect(appSource).not.toContain("w-[70%]");
-  expect(appSource).not.toContain("COMPACT_PRESET_PREVIEW_HEIGHTS");
-  expect(appSource).not.toContain('layoutMode === "podiumTop10" ? "aspect-[5/8] max-w-[190px]" : "aspect-[16/7] w-full"');
+  expect(appSource).not.toContain("Podium Presets");
+  expect(appSource).not.toContain("PodiumPresetsControl");
+  expect(appSource).not.toContain("PodiumPresetPreview");
 });

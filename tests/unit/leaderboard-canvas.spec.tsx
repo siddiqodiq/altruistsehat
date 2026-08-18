@@ -39,7 +39,8 @@ test("story compact rows render equal-height full-bleed athlete rows with format
   expect(source).not.toContain("flex-1");
   expect(source).toMatch(/buildLeaderboardRows\(spec\.athletes,\s*5\)/);
   expect(source).toMatch(/formatMetricDisplayParts\(athlete\.value, spec\.metric\)/);
-  expect(source).toMatch(/object-cover[\s\S]*object-center|object-center[\s\S]*object-cover/);
+  expect(source).toContain('data-layer="compact-medal-backplate"');
+  expect(source).toMatch(/object-contain[\s\S]*object-center|object-center[\s\S]*object-contain/);
   expect(source).toMatch(/linear-gradient\(to left/);
 });
 
@@ -56,29 +57,27 @@ test("story compact row name and value typography stay consistent for top two th
 test("story compact rows use full-frame smart crop image treatment", () => {
   const source = sourceBetween("function StoryCompactRow", "function StoryFooter");
   const medalBackplateIndex = source.indexOf('data-layer="compact-medal-backplate"');
-  const photoBackgroundIndex = source.indexOf('data-image-layer="compact-photo-background"');
   const photoForegroundIndex = source.indexOf('data-image-layer="compact-photo-foreground"');
   const blackFadeIndex = source.indexOf('data-layer="cinematic-row-fade"');
 
   expect(source).toContain("photoAdjustmentForAthlete(spec, athlete)");
   expect(source).toContain("resolveAthletePodiumImage(athlete, spec)");
-  expect(source).toContain("compactPhotoTreatmentForImage");
   expect(source).toContain("compactCutoutBackdropStyle(athlete.rank)");
-  expect(source).toContain("compactPhotoBackgroundAdjustmentStyle");
   expect(source).toContain("compactPhotoForegroundAdjustmentStyle");
-  expect(source).toContain('data-fit-strategy="dual-layer-background-fill"');
-  expect(source).toContain("dual-layer-blend-foreground");
-  expect(source).toContain("cutout-podium-backdrop");
+  expect(source).toContain('data-fit-strategy="medal-backplate-foreground"');
   expect(source).toContain("data-fit-strategy");
   expect(source).toContain('data-layer="compact-medal-backplate"');
-  expect(source).toContain('data-image-layer="compact-photo-background"');
   expect(source).toContain('data-image-layer="compact-photo-foreground"');
-  expect(source).toMatch(/object-cover[\s\S]*data-fit-strategy="dual-layer-background-fill"|data-fit-strategy="dual-layer-background-fill"[\s\S]*object-cover/);
   expect(source).toContain("object-contain");
+  expect(source).toContain('data-export-photo-adjust-target="true"');
+  expect(source).toContain("data-athlete-id={athlete.id}");
+  expect(source).toContain("data-layout-mode={exportLayoutModeForSpec(spec)}");
   expect(medalBackplateIndex).toBeGreaterThanOrEqual(0);
-  expect(photoBackgroundIndex).toBeGreaterThan(medalBackplateIndex);
   expect(photoForegroundIndex).toBeGreaterThan(medalBackplateIndex);
   expect(blackFadeIndex).toBeGreaterThan(photoForegroundIndex);
+  expect(source).not.toContain('data-image-layer="compact-photo-background"');
+  expect(source).not.toContain('data-fit-strategy="dual-layer-background-fill"');
+  expect(source).not.toContain("blur-2xl");
   expect(source).not.toContain('data-image-layer="portrait-safe-foreground"');
   expect(source).not.toContain('data-crop="portrait-safe-foreground"');
   expect(source).not.toContain('data-layer="compact-cutout-backdrop"');
@@ -101,6 +100,9 @@ test("story podium top ten photos can be manually adjusted from export metadata"
   expect(source).toContain("photoAdjustmentForAthlete(spec, athlete)");
   expect(source).toContain("podiumPhotoAdjustmentStyle");
   expect(source).toContain("data-photo-adjustment");
+  expect(source).toContain('data-export-photo-adjust-target="true"');
+  expect(source).toContain("data-athlete-id={athlete.id}");
+  expect(source).toContain("data-layout-mode={exportLayoutModeForSpec(spec)}");
   expect(podiumSource).toContain("<StoryAthleteImage athlete={athlete} spec={spec} />");
 });
 

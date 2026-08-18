@@ -1,8 +1,12 @@
 import { expect, test } from "@playwright/test";
 import {
   ATHLETE_IMAGE_CROP_PRESETS,
+  ATHLETE_IMAGE_CROP_ZOOM_LIMITS,
   centeredCropFrame,
   clampCropFrame,
+  cropFrameForZoom,
+  cropFrameImagePlacement,
+  cropOutputDimensionsForFrame,
   outputFilename,
 } from "../../src/lib/athletes/image-crop";
 
@@ -60,4 +64,52 @@ test("outputFilename preserves the athlete image intent with webp extension", ()
   expect(outputFilename("Utha Profile.JPG", "profile")).toBe("utha-profile-profile.webp");
   expect(outputFilename("Podium Hero.png", "podium")).toBe("podium-hero-podium.webp");
   expect(outputFilename("Podium Hero.png", "podium", { hasTransparency: true })).toBe("podium-hero-podium-cutout.webp");
+});
+
+test("outputFilename follows the browser encoder fallback mime type", () => {
+  expect(outputFilename("Runner.JPG", "podium", { mimeType: "image/jpeg" })).toBe("runner-podium.jpg");
+  expect(outputFilename("Cutout.png", "podium", { hasTransparency: true, mimeType: "image/png" })).toBe("cutout-podium-cutout.png");
+});
+
+test("podium crop zoom can shrink a wide source into the portrait canvas", () => {
+  const source = { width: 1600, height: 900 };
+  const frame = cropFrameForZoom({
+    aspectRatio: ATHLETE_IMAGE_CROP_PRESETS.podium.aspectRatio,
+    currentFrame: centeredCropFrame(source, ATHLETE_IMAGE_CROP_PRESETS.podium.aspectRatio),
+    source,
+    zoom: ATHLETE_IMAGE_CROP_ZOOM_LIMITS.min,
+  });
+
+  expect(frame.width).toBeGreaterThan(source.width);
+  expect(frame.height).toBeGreaterThan(source.height);
+  expect(frame.x).toBeLessThanOrEqual(0);
+  expect(frame.y).toBeLessThanOrEqual(0);
+  expect(frame.x + frame.width).toBeGreaterThanOrEqual(source.width);
+  expect(frame.y + frame.height).toBeGreaterThanOrEqual(source.height);
+});
+
+test("crop image placement preserves padding when the crop frame is larger than the source", () => {
+  const placement = cropFrameImagePlacement(
+    { width: 1600, height: 900 },
+    { x: -326, y: -1352, width: 2252, height: 3603 },
+    { width: 800, height: 1280 },
+  );
+
+  expect(placement.x).toBeGreaterThan(0);
+  expect(placement.y).toBeGreaterThan(0);
+  expect(placement.width).toBeLessThan(800);
+  expect(placement.height).toBeLessThan(1280);
+  expect(placement.x + placement.width).toBeLessThan(800);
+  expect(placement.y + placement.height).toBeLessThan(1280);
+});
+
+test("cropOutputDimensionsForFrame scales upload output up for large sources without exceeding safe caps", () => {
+  expect(cropOutputDimensionsForFrame(ATHLETE_IMAGE_CROP_PRESETS.profile, { x: 0, y: 0, width: 1800, height: 1800 })).toEqual({
+    width: 1024,
+    height: 1024,
+  });
+  expect(cropOutputDimensionsForFrame(ATHLETE_IMAGE_CROP_PRESETS.podium, { x: 0, y: 0, width: 2500, height: 4000 })).toEqual({
+    width: 1600,
+    height: 2560,
+  });
 });

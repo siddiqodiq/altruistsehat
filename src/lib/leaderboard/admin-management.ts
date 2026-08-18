@@ -2,14 +2,9 @@ import type { LeaderboardProjectState } from "./project-state";
 import { formatMetricValue, resolveMetricTotal } from "./metrics";
 import { METRIC_LABELS, type AthleteEntry, type LeaderboardSpec } from "./types";
 
-export const TEMPORARY_DEV_ADMIN_TOKEN = "admin123";
 export const UNSAVED_ADMIN_CHANGES_STORAGE_KEY = "altruist-leaderboard-unsaved-admin:v1";
 
 export type EditableAthleteField = "name" | "value";
-
-export function isDevelopmentAdminToken(value: string): boolean {
-  return value.trim() === TEMPORARY_DEV_ADMIN_TOKEN;
-}
 
 export function athleteCellKey(id: string, field: EditableAthleteField): string {
   return `${id}:${field}`;

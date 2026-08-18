@@ -1,10 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import {
+  athleteDefaultPassword,
+  deleteAthleteUserAccounts,
+  duplicateUsernameMessage,
+  isDuplicateAuthUserError,
+  provisionAthleteUserAccounts,
+} from "@/lib/athletes/accounts";
 import { normalizeAthleteName } from "@/lib/athletes/normalize";
 import { PodiumPhotoAdjustmentsSchema } from "@/lib/athletes/photo-adjustments-schema";
 import { normalizeSportPodiumPhotoUrls } from "@/lib/athletes/sport-podium-photos";
 import { SportPodiumPhotoUrlsSchema } from "@/lib/athletes/sport-podium-photos-schema";
+import { authUsernameEmailDomain, deriveUsernameFromAthleteName } from "@/lib/auth/username";
 import { errorMessage } from "@/lib/supabase/errors";
+import { requireAdminAuth } from "@/lib/supabase/auth-server";
 import {
   ATHLETE_SPORT_PODIUM_PHOTO_URLS_MIGRATION_MESSAGE,
   athleteSelectColumns,
@@ -19,8 +28,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const OptionalUrlSchema = z.preprocess(
-  (value) => (typeof value === "string" && !value.trim() ? undefined : value),
-  z.string().url().optional(),
+  (value) => (typeof value === "string" && !value.trim() ? null : value),
+  z.string().url().nullable().optional(),
 );
 
 const AthletePayloadSchema = z.object({
@@ -55,6 +64,11 @@ function athleteListQuery(
 }
 
 export async function GET(request: NextRequest) {
+  const unauthorized = await requireAdminAuth();
+  if (unauthorized) {
+    return unauthorized;
+  }
+
   try {
     const search = request.nextUrl.searchParams.get("q") ?? "";
     const normalizedSearch = normalizeAthleteName(search);
@@ -81,6 +95,11 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
+  const unauthorized = await requireAdminAuth();
+  if (unauthorized) {
+    return unauthorized;
+  }
+
   try {
     const body = await request.json().catch(() => null);
     const parsed = AthletePayloadSchema.safeParse(body);
@@ -90,11 +109,48 @@ export async function POST(request: NextRequest) {
 
     const supabase = createSupabaseServiceClient();
     const normalizedName = normalizeAthleteName(parsed.data.name);
+    const username = deriveUsernameFromAthleteName(parsed.data.name);
+    if (!username) {
+      return NextResponse.json({ error: "Nama atlet harus menghasilkan username yang valid." }, { status: 400 });
+    }
+
+    const { data: existingUsernameRows, error: existingUsernameError } = await supabase
+      .from("athletes")
+      .select("username")
+      .eq("username", username)
+      .limit(1);
+    if (existingUsernameError) {
+      throw existingUsernameError;
+    }
+    if (existingUsernameRows?.length) {
+      return NextResponse.json({ error: duplicateUsernameMessage([username]) }, { status: 409 });
+    }
+
+    let authUserId: string | undefined;
+    try {
+      const createdUsers = await provisionAthleteUserAccounts(
+        supabase,
+        [{ name: parsed.data.name, username }],
+        {
+          defaultPassword: athleteDefaultPassword(),
+          emailDomain: authUsernameEmailDomain(),
+        },
+      );
+      authUserId = createdUsers.get(username);
+    } catch (error) {
+      if (isDuplicateAuthUserError(error)) {
+        return NextResponse.json({ error: duplicateUsernameMessage([username]) }, { status: 409 });
+      }
+      throw error;
+    }
+
     const sportPodiumPhotoUrls = normalizeSportPodiumPhotoUrls(parsed.data.sportPodiumPhotoUrls);
     const hasSportPodiumPhotoUrls = Object.keys(sportPodiumPhotoUrls).length > 0;
     const insertPayload: Record<string, unknown> = {
       name: parsed.data.name,
       normalized_name: normalizedName,
+      username,
+      auth_user_id: authUserId,
       profile_photo_url: parsed.data.profilePhotoUrl ?? null,
       podium_photo_url: parsed.data.podiumPhotoUrl ?? null,
       sport_podium_photo_urls: sportPodiumPhotoUrls,
@@ -115,6 +171,7 @@ export async function POST(request: NextRequest) {
     }
     if (error && isMissingAthleteSportPodiumPhotoUrlsColumn(error)) {
       if (hasSportPodiumPhotoUrls) {
+        await deleteAthleteUserAccounts(supabase, [authUserId]);
         return NextResponse.json({ error: ATHLETE_SPORT_PODIUM_PHOTO_URLS_MIGRATION_MESSAGE }, { status: 409 });
       }
 
@@ -127,8 +184,10 @@ export async function POST(request: NextRequest) {
     }
 
     if (error) {
+      await deleteAthleteUserAccounts(supabase, [authUserId]);
       const status = error.code === "23505" ? 409 : 500;
-      return NextResponse.json({ error: error.message }, { status });
+      const message = error.code === "23505" ? duplicateUsernameMessage([username]) : error.message;
+      return NextResponse.json({ error: message }, { status });
     }
 
     return NextResponse.json({ athlete: mapAthleteRow(data as unknown as AthleteRow) }, { status: 201 });

@@ -30,6 +30,7 @@ grant select, insert, update on table public.leaderboard_week_snapshots to servi
 create or replace function public.set_leaderboard_week_snapshots_updated_at()
 returns trigger
 language plpgsql
+set search_path = ''
 as $$
 begin
   new.updated_at = now();

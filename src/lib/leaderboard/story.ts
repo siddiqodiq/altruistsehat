@@ -1,3 +1,4 @@
+import { normalizeAthleteName } from "../athletes/normalize";
 import { resolveMetricTotal } from "./metrics";
 import { buildLeaderboardRows } from "./ranking";
 import type { AthleteEntry, RankedAthlete } from "./types";
@@ -20,11 +21,10 @@ export interface LeaderboardStory {
   movementByAthleteKey: Record<string, AthleteMovement>;
   previousTotal?: number;
   topMover?: AthleteMovement;
-  totalDeltaPercent?: number;
 }
 
-export function leaderboardStoryAthleteKey(athlete: Pick<AthleteEntry, "athleteId" | "normalizedName" | "name">): string {
-  return athlete.athleteId ?? athlete.normalizedName ?? athlete.name.trim().toLowerCase();
+export function leaderboardStoryAthleteKey(athlete: Pick<AthleteEntry, "normalizedName" | "name">): string {
+  return athlete.normalizedName ?? normalizeAthleteName(athlete.name);
 }
 
 function snapshotIdentity(snapshot: LeaderboardWeekSnapshot) {
@@ -89,9 +89,7 @@ export function buildLeaderboardStory(
   const leader = currentRows[0];
   const leaderKey = leader ? leaderboardStoryAthleteKey(leader) : undefined;
   const leaderMovement = leaderKey ? movementByAthleteKey[leaderKey] : undefined;
-  const currentTotal = snapshotTotal(currentSnapshot);
   const previousTotal = previousSnapshot ? snapshotTotal(previousSnapshot) : undefined;
-  const totalDeltaPercent = previousTotal && previousTotal > 0 ? ((currentTotal - previousTotal) / previousTotal) * 100 : undefined;
 
   return {
     athleteCount: currentRows.length,
@@ -102,6 +100,5 @@ export function buildLeaderboardStory(
     movementByAthleteKey,
     previousTotal,
     topMover,
-    totalDeltaPercent,
   };
 }

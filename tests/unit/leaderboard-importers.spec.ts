@@ -30,6 +30,29 @@ test("time minute JSON imports the time field as minutes", () => {
   });
 });
 
+test("elevation gain import accepts common meter headers from CSV and JSON", () => {
+  expect(parseCsvInput("name,elevation\nUtha,1.250 m", "elevation_m")[0]).toMatchObject({
+    name: "Utha",
+    value: 1250,
+  });
+  expect(parseCsvInput("name,elevation gain\nAndi,980", "elevation_m")[0]).toMatchObject({
+    name: "Andi",
+    value: 980,
+  });
+  expect(parseCsvInput("name,gain\nBudi,1,050", "elevation_m")[0]).toMatchObject({
+    name: "Budi",
+    value: 1050,
+  });
+  expect(parseCsvInput("name,meters\nCitra,725", "elevation_m")[0]).toMatchObject({
+    name: "Citra",
+    value: 725,
+  });
+  expect(parseJsonInput('[{ "name": "Dewi", "elevation gain": "1,250" }]', "elevation_m")[0]).toMatchObject({
+    name: "Dewi",
+    value: 1250,
+  });
+});
+
 test("time minute import rejects non-integer minute formats", () => {
   for (const invalidValue of ["8h 30m", "08:30", "90.5", "90 minutes", "-1"]) {
     expect(() => parseCsvInput(`Fikri NA,${invalidValue}`, "time_minutes")).toThrow(

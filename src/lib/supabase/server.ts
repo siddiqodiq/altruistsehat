@@ -8,6 +8,8 @@ export interface AthleteRow {
   id: string;
   name: string;
   normalized_name: string;
+  username: string | null;
+  auth_user_id: string | null;
   profile_photo_url: string | null;
   podium_photo_url: string | null;
   sport_podium_photo_urls?: unknown;
@@ -32,7 +34,7 @@ export function athleteSelectColumns({
   includePodiumPhotoAdjustments?: boolean;
   includeSportPodiumPhotoUrls?: boolean;
 } = {}): string {
-  const columns = ["id", "name", "normalized_name", "profile_photo_url", "podium_photo_url"];
+  const columns = ["id", "name", "normalized_name", "username", "auth_user_id", "profile_photo_url", "podium_photo_url"];
   if (includePodiumPhotoAdjustments) {
     columns.push(ATHLETE_PODIUM_ADJUSTMENTS_COLUMN);
   }
@@ -40,6 +42,24 @@ export function athleteSelectColumns({
     columns.push(ATHLETE_SPORT_PODIUM_PHOTO_URLS_COLUMN);
   }
   columns.push("created_at", "updated_at");
+  return columns.join(",");
+}
+
+export function athletePublicSelectColumns({
+  includePodiumPhotoAdjustments = true,
+  includeSportPodiumPhotoUrls = true,
+}: {
+  includePodiumPhotoAdjustments?: boolean;
+  includeSportPodiumPhotoUrls?: boolean;
+} = {}): string {
+  const columns = ["id", "name", "normalized_name", "username", "profile_photo_url", "podium_photo_url"];
+  if (includePodiumPhotoAdjustments) {
+    columns.push(ATHLETE_PODIUM_ADJUSTMENTS_COLUMN);
+  }
+  if (includeSportPodiumPhotoUrls) {
+    columns.push(ATHLETE_SPORT_PODIUM_PHOTO_URLS_COLUMN);
+  }
+  columns.push("updated_at");
   return columns.join(",");
 }
 
@@ -117,11 +137,27 @@ export function mapAthleteRow(row: AthleteRow) {
     id: row.id,
     name: row.name,
     normalizedName: row.normalized_name,
+    username: row.username ?? undefined,
+    authUserId: row.auth_user_id ?? undefined,
     profilePhotoUrl: row.profile_photo_url ?? undefined,
     podiumPhotoUrl: row.podium_photo_url ?? undefined,
     sportPodiumPhotoUrls: normalizeSportPodiumPhotoUrls(row.sport_podium_photo_urls),
     podiumPhotoAdjustments: normalizeAthletePodiumPhotoAdjustments(row.podium_photo_adjustments),
     createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+}
+
+export function mapPublicAthleteRow(row: AthleteRow) {
+  return {
+    id: row.id,
+    name: row.name,
+    normalizedName: row.normalized_name,
+    username: row.username ?? undefined,
+    profilePhotoUrl: row.profile_photo_url ?? undefined,
+    podiumPhotoUrl: row.podium_photo_url ?? undefined,
+    sportPodiumPhotoUrls: normalizeSportPodiumPhotoUrls(row.sport_podium_photo_urls),
+    podiumPhotoAdjustments: normalizeAthletePodiumPhotoAdjustments(row.podium_photo_adjustments),
     updatedAt: row.updated_at,
   };
 }

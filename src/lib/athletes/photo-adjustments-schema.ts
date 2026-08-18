@@ -1,9 +1,10 @@
 import { z } from "zod";
+import { EXPORT_PHOTO_ADJUSTMENT_LIMITS } from "../leaderboard/photo-adjustments";
 
 const PhotoAdjustmentSchema = z.object({
-  zoom: z.number().finite().min(0.8).max(2.2),
-  x: z.number().finite().min(-40).max(40),
-  y: z.number().finite().min(-40).max(40),
+  zoom: z.number().finite().min(EXPORT_PHOTO_ADJUSTMENT_LIMITS.zoomMin).max(EXPORT_PHOTO_ADJUSTMENT_LIMITS.zoomMax),
+  x: z.number().finite().min(EXPORT_PHOTO_ADJUSTMENT_LIMITS.offsetMin).max(EXPORT_PHOTO_ADJUSTMENT_LIMITS.offsetMax),
+  y: z.number().finite().min(EXPORT_PHOTO_ADJUSTMENT_LIMITS.offsetMin).max(EXPORT_PHOTO_ADJUSTMENT_LIMITS.offsetMax),
 });
 
 export const PodiumPhotoAdjustmentsSchema = z.object({

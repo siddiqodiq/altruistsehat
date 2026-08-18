@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { SportPodiumPhotoUrlsSchema } from "@/lib/athletes/sport-podium-photos-schema";
+import { EXPORT_PHOTO_ADJUSTMENT_LIMITS } from "./photo-adjustments";
 import { SPORT_OPTIONS, type LeaderboardSpec, type SportType } from "./types";
 
 export const OutputFormatSchema = z.enum(["story", "feed"]);
@@ -14,9 +15,9 @@ export const ThemeIdSchema = z.enum(["altruist_dark", "strava_orange", "minimal_
 export const ExportLayoutModeSchema = z.enum(["podiumTop10", "top5", "top4", "top3", "top2", "top1"]);
 
 const ExportPhotoAdjustmentSchema = z.object({
-  zoom: z.number().finite().min(0.8).max(2.2),
-  x: z.number().finite().min(-40).max(40),
-  y: z.number().finite().min(-40).max(40),
+  zoom: z.number().finite().min(EXPORT_PHOTO_ADJUSTMENT_LIMITS.zoomMin).max(EXPORT_PHOTO_ADJUSTMENT_LIMITS.zoomMax),
+  x: z.number().finite().min(EXPORT_PHOTO_ADJUSTMENT_LIMITS.offsetMin).max(EXPORT_PHOTO_ADJUSTMENT_LIMITS.offsetMax),
+  y: z.number().finite().min(EXPORT_PHOTO_ADJUSTMENT_LIMITS.offsetMin).max(EXPORT_PHOTO_ADJUSTMENT_LIMITS.offsetMax),
 });
 
 export const ExportPhotoAdjustmentsSchema = z.object({
@@ -51,6 +52,7 @@ export const AthleteEntrySchema = z.object({
   value: z.number().finite().nonnegative(),
   athleteId: z.string().optional(),
   normalizedName: z.string().optional(),
+  username: z.string().optional(),
   avatarDataUrl: z.string().optional(),
   profilePhotoUrl: z.string().optional(),
   podiumPhotoUrl: z.string().optional(),

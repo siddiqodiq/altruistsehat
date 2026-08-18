@@ -1,10 +1,10 @@
 import { calculateWeeklyComparison, formatMetricDisplayParts, formatMetricValue, resolveMetricTotal } from "@/lib/leaderboard/metrics";
 import { resolveSportPodiumPhotoUrl } from "@/lib/athletes/sport-podium-photos";
+import { resolveUsableAthletePhotoUrl } from "@/lib/athletes/photo-url";
 import {
   compactCutoutBackdropStyle,
-  compactPhotoBackgroundAdjustmentStyle,
   compactPhotoForegroundAdjustmentStyle,
-  compactPhotoTreatmentForImage,
+  fullFramePhotoAdjustmentStyle,
   resolveAthletePhotoAdjustment,
 } from "@/lib/leaderboard/photo-adjustments";
 import { buildLeaderboardRows } from "@/lib/leaderboard/ranking";
@@ -22,6 +22,7 @@ import {
 } from "@/lib/leaderboard/types";
 import { initialsForName } from "@/lib/leaderboard/images";
 import { deriveCurrentTrendTotal, derivePreviousWeekTotal } from "@/lib/leaderboard/templates";
+import { exportTrendGraphValues } from "@/lib/leaderboard/export-trend";
 import { cn } from "@/lib/utils";
 import { Bike, Dumbbell, Footprints, Mountain, PersonStanding, Waves, type LucideIcon } from "lucide-react";
 
@@ -181,23 +182,8 @@ function splitMetricValue(
   return { number: parts.primary, unit: parts.accent };
 }
 
-function normalizedImageUrl(value?: string) {
-  if (!value || typeof value !== "string") {
-    return undefined;
-  }
-
-  const trimmed = value.trim();
-  return trimmed ? trimmed : undefined;
-}
-
 function resolveAthleteImage(...values: Array<string | undefined>) {
-  for (const value of values) {
-    const normalized = normalizedImageUrl(value);
-    if (normalized) {
-      return normalized;
-    }
-  }
-  return undefined;
+  return resolveUsableAthletePhotoUrl(...values);
 }
 
 function resolveAthletePodiumImage(athlete: RankedAthlete, spec: LeaderboardSpec) {
@@ -233,18 +219,8 @@ function photoAdjustmentData(adjustment: ExportPhotoAdjustment) {
   return `zoom:${adjustment.zoom.toFixed(2)};x:${adjustment.x};y:${adjustment.y}`;
 }
 
-function adjustmentObjectPosition(adjustment: ExportPhotoAdjustment) {
-  const x = Math.min(100, Math.max(0, 50 + adjustment.x));
-  const y = Math.min(100, Math.max(0, 50 + adjustment.y));
-  return `${x}% ${y}%`;
-}
-
 function podiumPhotoAdjustmentStyle(adjustment: ExportPhotoAdjustment) {
-  return {
-    objectPosition: adjustmentObjectPosition(adjustment),
-    transform: `scale(${1.04 * Math.max(1, adjustment.zoom)})`,
-    transformOrigin: "center center",
-  };
+  return fullFramePhotoAdjustmentStyle(adjustment, 1.04);
 }
 
 type StoryPodiumMedalTone = "gold" | "silver" | "bronze";
@@ -686,7 +662,7 @@ function StorySummary({ spec, total }: { spec: LeaderboardSpec; total: number })
         </div>
       </div>
       <div className="justify-self-end">
-        <StoryTrendGraph values={(spec.trendValues.length ? spec.trendValues : [total]).slice(-7)} />
+        <StoryTrendGraph values={exportTrendGraphValues(spec.trendValues.length ? spec.trendValues : [total])} />
       </div>
     </section>
   );
@@ -737,9 +713,13 @@ function StoryAthleteImage({
     return (
       <div
         className="absolute inset-0 z-[1] overflow-hidden"
+        data-athlete-id={athlete.id}
+        data-export-photo-adjust-target="true"
         data-fit-strategy="full-bleed-smart-crop"
         data-image-area="expanded-hero"
         data-layer="athlete-image"
+        data-layout-mode={exportLayoutModeForSpec(spec)}
+        data-rank={athlete.rank}
         data-testid={`podium-image-layer-${athlete.rank}`}
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -795,8 +775,11 @@ function StoryPodiumAthlete({ athlete, spec }: { athlete: RankedAthlete; spec: L
         isChampion ? "min-h-[512px] border-[#FFC72C] bg-[#111111]/72" : "mt-6 min-h-[478px] border-white/12",
       )}
       data-hero-scale={isChampion ? "champion" : "supporting"}
+      data-athlete-id={athlete.id}
+      data-export-photo-adjust-target="true"
       data-image-share="hero"
       data-layered-card="true"
+      data-layout-mode={exportLayoutModeForSpec(spec)}
       data-name-space="final-expanded"
       data-podium-scale="final-expanded"
       data-rank={athlete.rank}
@@ -1041,7 +1024,6 @@ function StoryCompactRow({
   const isChampion = athlete.rank === 1;
   const value = formatMetricDisplayParts(athlete.value, spec.metric);
   const adjustment = photoAdjustmentForAthlete(spec, athlete);
-  const compactPhotoTreatment = compactPhotoTreatmentForImage(imageSrc);
   const rankColor = isChampion ? "text-[#FFC72C]" : athlete.rank === 2 ? "text-white/82" : athlete.rank === 3 ? "text-[#c47b35]" : "text-white/62";
   const nameLineClamp = {
     display: "-webkit-box",
@@ -1060,6 +1042,9 @@ function StoryCompactRow({
         "relative min-h-0 overflow-hidden rounded-[8px] border bg-[#111111]/72",
         isChampion ? "border-[#FFC72C]/80 shadow-[0_0_0_1px_rgba(255,199,44,0.24)]" : "border-white/12",
       )}
+      data-athlete-id={athlete.id}
+      data-export-photo-adjust-target="true"
+      data-layout-mode={exportLayoutModeForSpec(spec)}
       data-rank={athlete.rank}
       data-row-height="equal"
       data-testid={`story-compact-row-rank-${athlete.rank}`}
@@ -1067,34 +1052,20 @@ function StoryCompactRow({
       <div className="absolute inset-0 z-0 overflow-hidden" data-image-area="cinematic-row" data-layer="athlete-image">
         <div className="absolute inset-0" data-layer="compact-medal-backplate" style={compactCutoutBackdropStyle(athlete.rank)} />
         {imageSrc ? (
-          <>
-            {compactPhotoTreatment === "photo" ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                alt=""
-                aria-hidden="true"
-                className="absolute inset-0 h-full w-full object-cover object-center opacity-[0.72] blur-2xl saturate-110"
-                data-fit-strategy="dual-layer-background-fill"
-                data-image-layer="compact-photo-background"
-                src={imageSrc}
-                style={compactPhotoBackgroundAdjustmentStyle(adjustment)}
-              />
-            ) : null}
-            <div className="absolute inset-0" style={foregroundMaskStyle}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                alt={`${athlete.name} athlete photo`}
-                className="h-full w-full object-contain object-center opacity-95 drop-shadow-[0_20px_34px_rgba(0,0,0,0.48)]"
-                data-fit-strategy={compactPhotoTreatment === "cutout" ? "cutout-podium-backdrop" : "dual-layer-blend-foreground"}
-                data-image-layer="compact-photo-foreground"
-                data-image-position="adjustable-foreground"
-                data-photo-adjustment={photoAdjustmentData(adjustment)}
-                data-testid={`story-compact-row-image-${athlete.rank}`}
-                src={imageSrc}
-                style={compactPhotoForegroundAdjustmentStyle(adjustment)}
-              />
-            </div>
-          </>
+          <div className="absolute inset-0" style={foregroundMaskStyle}>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              alt={`${athlete.name} athlete photo`}
+              className="h-full w-full object-contain object-center opacity-95 drop-shadow-[0_20px_34px_rgba(0,0,0,0.48)]"
+              data-fit-strategy="medal-backplate-foreground"
+              data-image-layer="compact-photo-foreground"
+              data-image-position="adjustable-foreground"
+              data-photo-adjustment={photoAdjustmentData(adjustment)}
+              data-testid={`story-compact-row-image-${athlete.rank}`}
+              src={imageSrc}
+              style={compactPhotoForegroundAdjustmentStyle(adjustment)}
+            />
+          </div>
         ) : (
           <div
             className="relative h-full w-full bg-[radial-gradient(circle_at_26%_42%,rgba(255,255,255,0.18),transparent_24%),linear-gradient(135deg,#3f3f3f_0%,#151515_54%,#050505_100%)]"
@@ -1268,7 +1239,7 @@ function StatsSection({
       </div>
 
       <div className="justify-self-end">
-        <TrendGraph compact={compact} values={[...spec.trendValues, total].slice(-7)} />
+        <TrendGraph compact={compact} values={exportTrendGraphValues([...spec.trendValues, total])} />
       </div>
     </section>
   );

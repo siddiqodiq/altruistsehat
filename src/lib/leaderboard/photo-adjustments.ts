@@ -27,6 +27,14 @@ const DEFAULT_EXPORT_PHOTO_ADJUSTMENT: ExportPhotoAdjustment = {
   y: 0,
 };
 
+export const EXPORT_PHOTO_ADJUSTMENT_LIMITS = {
+  legacyOffsetMax: 40,
+  offsetMax: 150,
+  offsetMin: -150,
+  zoomMax: 5,
+  zoomMin: 0.5,
+} as const;
+
 type CompactExportLayoutMode = Exclude<ExportLayoutMode, "podiumTop10">;
 
 const COMPACT_EXPORT_ATHLETE_COUNTS: Record<CompactExportLayoutMode, number> = {
@@ -48,6 +56,15 @@ export const DEFAULT_EXPORT_PHOTO_ADJUSTMENTS: Record<ExportLayoutMode, ExportPh
   top1: DEFAULT_EXPORT_PHOTO_ADJUSTMENT,
 };
 
+const EXPORT_PHOTO_DRAG_DIRECTIONS: Record<ExportLayoutMode, 1> = {
+  podiumTop10: 1,
+  top5: 1,
+  top4: 1,
+  top3: 1,
+  top2: 1,
+  top1: 1,
+};
+
 function finiteNumber(value: unknown, fallback: number) {
   const parsed = typeof value === "number" ? value : Number(value);
   return Number.isFinite(parsed) ? parsed : fallback;
@@ -55,9 +72,18 @@ function finiteNumber(value: unknown, fallback: number) {
 
 export function clampExportPhotoAdjustment(adjustment: Partial<ExportPhotoAdjustment> = {}): ExportPhotoAdjustment {
   return {
-    zoom: Math.min(2.2, Math.max(0.8, finiteNumber(adjustment.zoom, DEFAULT_EXPORT_PHOTO_ADJUSTMENT.zoom))),
-    x: Math.min(40, Math.max(-40, finiteNumber(adjustment.x, DEFAULT_EXPORT_PHOTO_ADJUSTMENT.x))),
-    y: Math.min(40, Math.max(-40, finiteNumber(adjustment.y, DEFAULT_EXPORT_PHOTO_ADJUSTMENT.y))),
+    zoom: Math.min(
+      EXPORT_PHOTO_ADJUSTMENT_LIMITS.zoomMax,
+      Math.max(EXPORT_PHOTO_ADJUSTMENT_LIMITS.zoomMin, finiteNumber(adjustment.zoom, DEFAULT_EXPORT_PHOTO_ADJUSTMENT.zoom)),
+    ),
+    x: Math.min(
+      EXPORT_PHOTO_ADJUSTMENT_LIMITS.offsetMax,
+      Math.max(EXPORT_PHOTO_ADJUSTMENT_LIMITS.offsetMin, finiteNumber(adjustment.x, DEFAULT_EXPORT_PHOTO_ADJUSTMENT.x)),
+    ),
+    y: Math.min(
+      EXPORT_PHOTO_ADJUSTMENT_LIMITS.offsetMax,
+      Math.max(EXPORT_PHOTO_ADJUSTMENT_LIMITS.offsetMin, finiteNumber(adjustment.y, DEFAULT_EXPORT_PHOTO_ADJUSTMENT.y)),
+    ),
   };
 }
 
@@ -89,28 +115,83 @@ export function compactPresetPreviewHeightPx(
   return Math.round((rowHeight / topOneRowHeight) * maxHeightPx);
 }
 
+export function exportPhotoAdjustmentFromDrag({
+  currentX,
+  currentY,
+  layoutMode,
+  previewScale,
+  startAdjustment,
+  startX,
+  startY,
+  targetHeight,
+  targetWidth,
+}: {
+  currentX: number;
+  currentY: number;
+  layoutMode: ExportLayoutMode;
+  previewScale: number;
+  startAdjustment: ExportPhotoAdjustment;
+  startX: number;
+  startY: number;
+  targetHeight: number;
+  targetWidth: number;
+}): ExportPhotoAdjustment {
+  const safePreviewScale = Math.max(0.01, Math.abs(finiteNumber(previewScale, 1)));
+  const safeTargetWidth = Math.max(1, finiteNumber(targetWidth, 1));
+  const safeTargetHeight = Math.max(1, finiteNumber(targetHeight, 1));
+  const movementX = ((finiteNumber(currentX, startX) - finiteNumber(startX, 0)) / safePreviewScale / safeTargetWidth) * 100;
+  const movementY = ((finiteNumber(currentY, startY) - finiteNumber(startY, 0)) / safePreviewScale / safeTargetHeight) * 100;
+  const direction = EXPORT_PHOTO_DRAG_DIRECTIONS[layoutMode];
+
+  return clampExportPhotoAdjustment({
+    ...startAdjustment,
+    x: startAdjustment.x + movementX * direction,
+    y: startAdjustment.y + movementY * direction,
+  });
+}
+
+function legacyObjectPositionOffset(value: number) {
+  return Math.min(
+    EXPORT_PHOTO_ADJUSTMENT_LIMITS.legacyOffsetMax,
+    Math.max(-EXPORT_PHOTO_ADJUSTMENT_LIMITS.legacyOffsetMax, finiteNumber(value, 0)),
+  );
+}
+
 function adjustedObjectPosition(adjustment: ExportPhotoAdjustment): string {
-  const x = Math.min(100, Math.max(0, 50 + adjustment.x));
-  const y = Math.min(100, Math.max(0, 50 + adjustment.y));
+  const x = 50 + legacyObjectPositionOffset(adjustment.x);
+  const y = 50 + legacyObjectPositionOffset(adjustment.y);
 
   return `${x}% ${y}%`;
 }
 
 function compactPhotoTranslate(adjustment: ExportPhotoAdjustment): string {
-  const x = Math.min(40, Math.max(-40, finiteNumber(adjustment.x, DEFAULT_EXPORT_PHOTO_ADJUSTMENT.x)));
-  const y = Math.min(40, Math.max(-40, finiteNumber(adjustment.y, DEFAULT_EXPORT_PHOTO_ADJUSTMENT.y)));
+  const clamped = clampExportPhotoAdjustment(adjustment);
+
+  return `translate(${clamped.x}%, ${clamped.y}%)`;
+}
+
+function extraFullFrameTranslate(adjustment: ExportPhotoAdjustment): string | undefined {
+  const clamped = clampExportPhotoAdjustment(adjustment);
+  const x = clamped.x - legacyObjectPositionOffset(clamped.x);
+  const y = clamped.y - legacyObjectPositionOffset(clamped.y);
+  if (x === 0 && y === 0) {
+    return undefined;
+  }
 
   return `translate(${x}%, ${y}%)`;
 }
 
-export function fullFramePhotoAdjustmentStyle(adjustment: ExportPhotoAdjustment): {
+export function fullFramePhotoAdjustmentStyle(adjustment: ExportPhotoAdjustment, scaleMultiplier = 1): {
   objectPosition: string;
   transform: string;
   transformOrigin: "center center";
 } {
+  const translate = extraFullFrameTranslate(adjustment);
+  const scale = `scale(${scaleMultiplier * Math.max(1, clampExportPhotoAdjustment(adjustment).zoom)})`;
+
   return {
     objectPosition: adjustedObjectPosition(adjustment),
-    transform: `scale(${Math.max(1, adjustment.zoom)})`,
+    transform: translate ? `${translate} ${scale}` : scale,
     transformOrigin: "center center",
   };
 }
@@ -120,25 +201,11 @@ export function compactPhotoForegroundAdjustmentStyle(adjustment: ExportPhotoAdj
   transform: string;
   transformOrigin: "center center";
 } {
-  const zoom = Math.min(2.2, Math.max(0.8, finiteNumber(adjustment.zoom, DEFAULT_EXPORT_PHOTO_ADJUSTMENT.zoom)));
+  const zoom = clampExportPhotoAdjustment(adjustment).zoom;
 
   return {
     objectPosition: "50% 50%",
     transform: `${compactPhotoTranslate(adjustment)} scale(${zoom})`,
-    transformOrigin: "center center",
-  };
-}
-
-export function compactPhotoBackgroundAdjustmentStyle(adjustment: ExportPhotoAdjustment): {
-  objectPosition: string;
-  transform: string;
-  transformOrigin: "center center";
-} {
-  const zoom = Math.min(1.5, Math.max(1.08, finiteNumber(adjustment.zoom, DEFAULT_EXPORT_PHOTO_ADJUSTMENT.zoom)));
-
-  return {
-    objectPosition: "50% 50%",
-    transform: `scale(${zoom})`,
     transformOrigin: "center center",
   };
 }

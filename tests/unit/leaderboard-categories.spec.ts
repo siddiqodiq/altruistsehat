@@ -1,5 +1,12 @@
 import { expect, test } from "@playwright/test";
-import { LEADERBOARD_CATEGORIES } from "../../src/lib/leaderboard/categories";
+import {
+  categoryForSpec,
+  categoryForSportMetric,
+  LEADERBOARD_CATEGORIES,
+  leaderboardSportOptions,
+  metricOptionsForSport,
+  normalizeLeaderboardCategory,
+} from "../../src/lib/leaderboard/categories";
 import { LEADERBOARD_TEMPLATES } from "../../src/lib/leaderboard/templates";
 
 test("leaderboard categories use Weight Training time instead of Multisport moving time", () => {
@@ -25,4 +32,32 @@ test("leaderboard templates use Weight Training time instead of Multisport movin
     metric: "time_minutes",
     leaderboardMetric: "TIME",
   });
+});
+
+test("running elevation gain is selectable as a metric without duplicating the Running sport", () => {
+  expect(LEADERBOARD_CATEGORIES.find((category) => category.id === "running_elevation_gain")).toMatchObject({
+    label: "Running",
+    metric: "elevation_m",
+    metricLabel: "Elevation Gain",
+    shortLabel: "Run",
+    sportType: "Running",
+    templateId: "running_elevation_gain",
+  });
+
+  expect(normalizeLeaderboardCategory("running_elevation_gain")).toBe("running_elevation_gain");
+  expect(categoryForSpec({ sportType: "Running", metric: "elevation_m" })).toBe("running_elevation_gain");
+  expect(categoryForSportMetric("Running", "distance_km")).toBe("running");
+  expect(categoryForSportMetric("Running", "elevation_m")).toBe("running_elevation_gain");
+
+  expect(leaderboardSportOptions().map((option) => `${option.sportType}:${option.defaultCategoryId}`)).toEqual([
+    "Running:running",
+    "Riding:cycling",
+    "Swimming:swimming",
+    "Weight Training:weight_training",
+  ]);
+
+  expect(metricOptionsForSport("Running").map((option) => `${option.metricLabel}:${option.categoryId}:${option.templateId}`)).toEqual([
+    "Distance:running:running_weekly_mileage",
+    "Elevation Gain:running_elevation_gain:running_elevation_gain",
+  ]);
 });

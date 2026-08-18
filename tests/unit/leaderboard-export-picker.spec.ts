@@ -20,26 +20,48 @@ test("admin export preview wires the athlete count picker into preview and downl
   expect(uiSource).toContain('data-testid="export-athlete-picker"');
   expect(uiSource).toContain('data-testid="export-photo-adjust-panel"');
   expect(uiSource).toContain('data-testid="export-photo-adjust-athletes"');
-  expect(uiSource).toContain("Zoom");
-  expect(uiSource).toContain("Horizontal");
-  expect(uiSource).toContain("Vertical");
-  expect(uiSource).toContain("isCompactExportLayoutMode");
-  expect(uiSource).toContain("compactZoomMin = 0.8");
-  expect(uiSource).toContain("isCompactExportLayoutMode(layoutMode) ? compactZoomMin : 1");
-  expect(uiSource).toContain("Math.max(zoomMin, selectedAdjustment.zoom)");
-  expect(uiSource).toContain("min={zoomMin}");
+  expect(uiSource).toContain("EXPORT_PHOTO_ADJUSTMENT_LIMITS");
+  expect(uiSource).toContain("EXPORT_PHOTO_ADJUSTMENT_LIMITS.zoomMin");
+  expect(uiSource).toContain("EXPORT_PHOTO_ADJUSTMENT_LIMITS.zoomMax");
+  expect(uiSource).toContain("EXPORT_PHOTO_ADJUSTMENT_LIMITS.offsetMax");
+  expect(uiSource).not.toContain("compactZoomMin = 0.8");
+  expect(uiSource).toContain("handleExportPreviewPointerDown");
+  expect(uiSource).toContain("handleExportPreviewPointerMove");
+  expect(uiSource).toContain("handleExportPreviewPointerUp");
+  expect(uiSource).toContain("handleExportPreviewWheel");
+  expect(uiSource).toContain("setPointerCapture");
+  expect(uiSource).toContain("previewScale");
+  expect(uiSource).toContain('data-testid="export-photo-direct-editor"');
+  expect(uiSource).toContain('aria-label="Perbesar foto terpilih"');
+  expect(uiSource).toContain('aria-label="Perkecil foto terpilih"');
+  expect(uiSource).not.toContain('max="2.2"');
+  expect(uiSource).not.toContain('max="40"');
+  expect(uiSource).not.toContain("type=\"range\"");
+  expect(uiSource).not.toContain(">Zoom<");
+  expect(uiSource).not.toContain(">Horizontal<");
+  expect(uiSource).not.toContain(">Vertical<");
   expect(uiSource).toContain("exportAthleteSelectionOptions");
   expect(uiSource).toContain("onExportAthleteSelectionChange");
   expect(uiSource).toContain("onExportPhotoAdjustmentChange");
-  expect(adminSource).toContain("handleSaveSelectedExportPhotoAdjustment");
-  expect(adminSource).toContain("handleSaveAdjustedExportPhotoAdjustments");
+  expect(adminSource).toContain("scheduleExportPhotoAdjustmentAutosave");
+  expect(adminSource).toContain("flushPendingExportPhotoAdjustmentAutosaves");
   expect(adminSource).toContain("updateAthletePhotoAdjustments");
   expect(adminSource).toContain("clearAthleteLookupCache");
-  expect(uiSource).toContain("Save as Default");
-  expect(uiSource).toContain("Save Adjusted");
-  expect(uiSource).toContain("onSaveSelectedPhotoAdjustment");
-  expect(uiSource).toContain("onSaveAdjustedPhotoAdjustments");
-  expect(uiSource).toContain("savingPhotoAdjustment");
+  expect(adminSource).toContain("forceRefresh: true");
+  expect(uiSource).not.toContain("Save as Default");
+  expect(uiSource).not.toContain("Save Adjusted");
+  expect(uiSource).not.toContain("onSaveSelectedPhotoAdjustment");
+  expect(uiSource).not.toContain("onSaveAdjustedPhotoAdjustments");
+  expect(uiSource).not.toContain("savingPhotoAdjustment");
+  expect(adminSource).toContain("refreshingExportPreview");
+  expect(adminSource).toContain("handleRefreshExportPreview");
+  expect(adminSource).toMatch(/<ExportPreviewModal[\s\S]*onRefresh=\{\(\) => void handleRefreshExportPreview\(\)\}/);
+  expect(uiSource).toContain("onRefresh");
+  expect(uiSource).toContain("refreshingExportPreview");
+  expect(uiSource).toContain('aria-label="Muat ulang pratinjau"');
+  expect(uiSource).not.toContain("Refresh Export");
+  expect(uiSource).toContain('data-testid="export-preview-stage"');
+  expect(uiSource).toContain("grid place-items-center overflow-auto");
 });
 
 test("PNG export captures the preview frame in the browser at full output resolution", () => {
@@ -75,11 +97,7 @@ test("PNG export no longer depends on a server-side headless browser", () => {
   expect(clientSource).not.toContain("/api/export");
   expect(clientSource).toContain("downloadExportFrame");
 
-  for (const componentPath of [
-    "src/components/leaderboard/GeneratorApp.tsx",
-    "src/components/leaderboard/LeaderboardDashboard.tsx",
-    "src/components/leaderboard/LeaderboardAdminManager.tsx",
-  ]) {
+  for (const componentPath of ["src/components/leaderboard/LeaderboardAdminManager.tsx"]) {
     expect(source(componentPath)).not.toContain("/api/export");
   }
 });

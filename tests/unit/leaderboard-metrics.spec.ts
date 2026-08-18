@@ -9,6 +9,12 @@ test("formatMetricValue renders Indonesian two-decimal values with the active me
   expect(formatMetricValue(2.5, "distance_km")).toBe("2,50 km");
 });
 
+test("formatMetricValue renders elevation gain as whole Indonesian meters", () => {
+  expect(formatMetricValue(1250.4, "elevation_m")).toBe("1.250 m");
+  expect(formatMetricValue(1250.6, "elevation_m")).toBe("1.251 m");
+  expect(formatMetricDisplayParts(1250.4, "elevation_m")).toEqual({ primary: "1.250", accent: "M" });
+});
+
 test("formatMetricValue renders time minutes as compact Indonesian duration", () => {
   expect(formatMetricValue(550, "time_minutes")).toBe("9 jam 10 menit");
   expect(formatMetricValue(61, "time_minutes")).toBe("1 jam 1 menit");

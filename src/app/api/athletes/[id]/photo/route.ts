@@ -5,6 +5,7 @@ import {
   athletePhotoUrlForKind,
   type AthletePhotoSource,
 } from "@/lib/athletes/photo-download";
+import { requireAdminAuth } from "@/lib/supabase/auth-server";
 import { errorMessage } from "@/lib/supabase/errors";
 import { createSupabaseServiceClient } from "@/lib/supabase/server";
 
@@ -22,6 +23,11 @@ function jsonError(message: string, status: number) {
 }
 
 export async function GET(request: NextRequest, context: RouteContext) {
+  const unauthorized = await requireAdminAuth();
+  if (unauthorized) {
+    return unauthorized;
+  }
+
   try {
     const { id } = await context.params;
     const kind = PhotoKindSchema.safeParse(request.nextUrl.searchParams.get("kind"));

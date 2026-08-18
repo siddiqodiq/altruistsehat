@@ -33,6 +33,7 @@ export interface AthleteEntry {
   value: number;
   athleteId?: string;
   normalizedName?: string;
+  username?: string;
   avatarDataUrl?: string;
   profilePhotoUrl?: string;
   podiumPhotoUrl?: string;

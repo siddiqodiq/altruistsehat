@@ -27,7 +27,6 @@ import {
 import { upsertWeekSnapshot, type LeaderboardWeekSnapshot } from "./week-snapshots";
 import type { LeaderboardSpec } from "./types";
 
-export const ADMIN_TOKEN_STORAGE_KEY = "altruist-leaderboard-admin-token:v1";
 export const STORY_FORMAT = "story" as const;
 
 export function normalizeTemplateId(value: unknown): LeaderboardTemplateId {
@@ -69,7 +68,13 @@ export function createCategoryDraft(
   const templateId = normalizeTemplateId(templateIdForCategory(categoryId));
   const seasonYear = overrides.seasonYear ?? DEFAULT_SEASON_YEAR;
   const weekNumber = overrides.weekNumber ?? DEFAULT_WEEK_NUMBER;
-  const sourceSpec = overrides.spec ?? { ...DEFAULT_SPEC, athletes: [] };
+  const sourceSpec = overrides.spec ?? {
+    ...DEFAULT_SPEC,
+    athletes: [],
+    previousWeekTotal: undefined,
+    totalOverride: undefined,
+    trendValues: [],
+  };
   const draft = createInitialProjectState({
     spec: deriveDashboardSpec(sourceSpec, seasonYear, weekNumber, templateId),
     seasonYear,
@@ -98,6 +103,21 @@ export function normalizeCategoryProjectState(
 ): LeaderboardProjectState | undefined {
   const migrated = migrateStoredProjectState(raw);
   return migrated ? createCategoryDraft(categoryId, migrated) : undefined;
+}
+
+export function ensureCategoryDrafts(
+  drafts: Partial<Record<LeaderboardCategoryId, LeaderboardProjectState | undefined>> = {},
+): Record<LeaderboardCategoryId, LeaderboardProjectState> {
+  const nextDrafts = createInitialCategoryDrafts();
+
+  LEADERBOARD_CATEGORIES.forEach((category) => {
+    const normalized = normalizeCategoryProjectState(drafts[category.id], category.id);
+    if (normalized) {
+      nextDrafts[category.id] = normalized;
+    }
+  });
+
+  return nextDrafts;
 }
 
 export function currentSnapshotFromDraft(draft: LeaderboardProjectState): LeaderboardWeekSnapshot {
