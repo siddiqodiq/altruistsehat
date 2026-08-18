@@ -69,6 +69,7 @@ import {
   STORY_FORMAT,
 } from "@/lib/leaderboard/dashboard-state";
 import {
+  ATHLETE_PHOTO_FETCH_ERROR,
   downloadLeaderboardPng,
   exportAthleteSelectionOptions,
   clampExportPhotoAdjustment,
@@ -82,6 +83,7 @@ import {
   specWithLocalExportPhotoAdjustments,
   writeLocalExportPhotoAdjustment,
 } from "@/lib/leaderboard/export-photo-autosave";
+import { nextPaint } from "@/lib/leaderboard/export-image";
 import {
   LeaderboardWeekSnapshotSchema,
   compareSnapshotsByWeekAsc,
@@ -787,6 +789,9 @@ export function LeaderboardAdminManager({ topbarClearance = false }: { topbarCle
   const [exporting, setExporting] = useState(false);
   const [refreshingExportPreview, setRefreshingExportPreview] = useState(false);
   const [exportPreviewSpec, setExportPreviewSpec] = useState<LeaderboardSpec | null>(null);
+  const [exportPhotosLoading, setExportPhotosLoading] = useState(false);
+  const [exportPhotosError, setExportPhotosError] = useState<string | null>(null);
+  const exportFrameRef = useRef<HTMLDivElement>(null);
   const [exportAthleteSelection, setExportAthleteSelection] = useState<ExportAthleteSelection>("podiumTop10");
   const [exportPhotoAdjustments, setExportPhotoAdjustments] = useState<ExportPhotoAdjustments>({});
   const [deleteWeekOpen, setDeleteWeekOpen] = useState(false);
@@ -1450,13 +1455,18 @@ export function LeaderboardAdminManager({ topbarClearance = false }: { topbarCle
     setExportOpen(true);
     setRefreshingExportPreview(true);
     setStatus("Menyiapkan pratinjau gambar");
+    setExportPhotosError(null);
+    setExportPhotosLoading(true);
+    setStatus("Memuat foto atlet");
 
     try {
       setExportPreviewSpec(await specWithLatestDatabasePhotos(baseSpec));
       setStatus("Siap");
     } catch {
-      setStatus("Siap");
+      setExportPhotosError(ATHLETE_PHOTO_FETCH_ERROR);
+      setStatus(ATHLETE_PHOTO_FETCH_ERROR);
     } finally {
+      setExportPhotosLoading(false);
       setRefreshingExportPreview(false);
     }
   }
@@ -1467,6 +1477,8 @@ export function LeaderboardAdminManager({ topbarClearance = false }: { topbarCle
     }
 
     setRefreshingExportPreview(true);
+    setExportPhotosError(null);
+    setExportPhotosLoading(true);
     setStatus("Memperbarui pratinjau gambar");
 
     try {
@@ -1474,22 +1486,44 @@ export function LeaderboardAdminManager({ topbarClearance = false }: { topbarCle
       setStatus("Pratinjau gambar diperbarui");
       showToast("success", "Pratinjau diperbarui", "Foto atlet sudah dimuat ulang.");
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Pratinjau belum bisa diperbarui. Coba lagi sebentar.";
+      const message = error instanceof Error ? error.message : ATHLETE_PHOTO_FETCH_ERROR;
+      setExportPhotosError(message);
       setStatus(message);
       showToast("error", "Pratinjau belum diperbarui", message);
     } finally {
+      setExportPhotosLoading(false);
       setRefreshingExportPreview(false);
     }
   }
 
   async function handleDownloadExport() {
+    if (exportPhotosLoading) {
+      return;
+    }
+
     setExporting(true);
+    setExportPhotosError(null);
     setStatus("Menyiapkan PNG");
 
     try {
       await flushPendingExportPhotoAdjustmentAutosaves();
-      const exportSpecToDownload = await specWithLatestDatabasePhotos(selectedExportSpec);
-      const filename = await downloadLeaderboardPng(exportSpecToDownload, STORY_FORMAT);
+      let latestPhotoSpec: LeaderboardSpec;
+      try {
+        latestPhotoSpec = await specWithLatestDatabasePhotos(selectedExportSpec);
+      } catch {
+        // A reload re-establishes the Supabase connection, so point the user at that
+        // instead of surfacing a raw "TypeError: fetch failed".
+        setExportPhotosError(ATHLETE_PHOTO_FETCH_ERROR);
+        setStatus(ATHLETE_PHOTO_FETCH_ERROR);
+        showToast("error", "Export gagal", ATHLETE_PHOTO_FETCH_ERROR);
+        return;
+      }
+
+      setExportPreviewSpec(latestPhotoSpec);
+      // The PNG is captured from the live preview DOM, so the refreshed photos have to be
+      // committed and painted before the frame is serialised.
+      await nextPaint();
+      const filename = await downloadLeaderboardPng(exportFrameRef.current, STORY_FORMAT);
       setStatus("PNG berhasil diunduh");
       showToast("success", "Gambar berhasil diunduh", filename);
     } catch (error) {
@@ -1766,8 +1800,11 @@ export function LeaderboardAdminManager({ topbarClearance = false }: { topbarCle
           exportAthleteSelection={exportAthleteSelection}
           exportAthleteSelectionOptions={exportSelectionOptions}
           exportPhotoAdjustments={exportPhotoAdjustments}
+          exportFrameRef={exportFrameRef}
           exporting={exporting}
           refreshingExportPreview={refreshingExportPreview}
+          photosError={exportPhotosError}
+          photosLoading={exportPhotosLoading}
           onClose={() => setExportOpen(false)}
           onDownload={() => void handleDownloadExport()}
           onExportAthleteSelectionChange={setExportAthleteSelection}

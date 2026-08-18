@@ -64,62 +64,40 @@ test("admin export preview wires the athlete count picker into preview and downl
   expect(uiSource).toContain("grid place-items-center overflow-auto");
 });
 
-test("PNG export route hides Next dev indicator overlays before taking the frame screenshot", () => {
-  const routeSource = source("src/app/api/export/route.ts");
+test("PNG export captures the preview frame in the browser at full output resolution", () => {
+  const imageSource = source("src/lib/leaderboard/export-image.ts");
 
-  expect(routeSource).toContain("NEXT_DEVTOOLS_HIDE_CSS");
-  expect(routeSource).toContain("nextjs-portal");
-  expect(routeSource).toContain("[data-nextjs");
-  expect(routeSource).toContain("page.addStyleTag");
-  expect(routeSource).toMatch(/hideNextDevIndicators\(page\)[\s\S]*waitForSelector\("\[data-export-frame\]"[\s\S]*frame\.screenshot/);
+  expect(imageSource).toContain("[data-export-frame]");
+  // A scaled preview wrapper must not shrink the PNG, and the DPR must not enlarge it.
+  expect(imageSource).toContain("OUTPUT_DIMENSIONS[format]");
+  expect(imageSource).toContain("pixelRatio: 1");
+  expect(imageSource).toContain('transform: "none"');
+  expect(imageSource).toContain("waitForFrameAssets");
 });
 
-test("PNG export route uses Vercel-compatible Chromium instead of bundled Playwright", () => {
-  const packageJson = JSON.parse(source("package.json")) as {
-    dependencies?: Record<string, string>;
-    devDependencies?: Record<string, string>;
-  };
-  const routeSource = source("src/app/api/export/route.ts");
-  const nextConfigSource = source("next.config.mjs");
-
-  expect(packageJson.dependencies).toHaveProperty("@sparticuz/chromium-min");
-  expect(packageJson.dependencies).toHaveProperty("puppeteer-core");
-  expect(packageJson.dependencies).not.toHaveProperty("playwright");
-  expect(packageJson.devDependencies).toHaveProperty("@playwright/test");
-  expect(routeSource).toContain('from "puppeteer-core"');
-  expect(routeSource).toContain('@sparticuz/chromium-min');
-  expect(routeSource).toContain("process.env.VERCEL");
-  expect(routeSource).not.toContain('from "playwright"');
-  expect(nextConfigSource).not.toContain('serverExternalPackages: ["playwright"]');
-});
-
-test("admin export download keeps preview adjustments stable while rendering", () => {
+test("export preview blocks download while athlete photos load and guides a refresh on failure", () => {
   const adminSource = source("src/components/leaderboard/LeaderboardAdminManager.tsx");
-  const openStart = adminSource.indexOf("async function openExportPreview()");
-  const downloadStart = adminSource.indexOf("async function handleDownloadExport()");
-  const tableActionsStart = adminSource.indexOf("const tableActions", downloadStart);
+  const uiSource = source("src/components/leaderboard/LeaderboardUi.tsx");
 
-  expect(openStart).toBeGreaterThan(-1);
-  expect(downloadStart).toBeGreaterThan(-1);
-  expect(tableActionsStart).toBeGreaterThan(downloadStart);
+  // A failed athlete lookup must not surface a raw "TypeError: fetch failed".
+  expect(adminSource).toContain("ATHLETE_PHOTO_FETCH_ERROR");
+  expect(adminSource).toContain("setExportPhotosLoading");
+  expect(adminSource).toMatch(/if \(exportPhotosLoading\) \{\s*return;/);
 
-  const openBlock = adminSource.slice(openStart, downloadStart);
-  const downloadBlock = adminSource.slice(downloadStart, tableActionsStart);
-
-  expect(openBlock).not.toContain("setExportPhotoAdjustments({})");
-  expect(downloadBlock).toContain("flushPendingExportPhotoAdjustmentAutosaves()");
-  expect(downloadBlock).toContain("specWithLatestDatabasePhotos(selectedExportSpec)");
-  expect(downloadBlock).toContain("downloadLeaderboardPng(exportSpecToDownload");
-  expect(downloadBlock).not.toContain("setExportPreviewSpec(latestPhotoSpec)");
+  expect(uiSource).toContain("usePreviewPhotosLoading");
+  expect(uiSource).toContain("export-preview-loading");
+  expect(uiSource).toContain("Refresh halaman");
+  expect(uiSource).toContain("window.location.reload()");
+  expect(uiSource).toContain("disabled={exporting || previewLoading}");
 });
 
-test("admin export adjustment changes write local last-used state before debounced database sync", () => {
-  const adminSource = source("src/components/leaderboard/LeaderboardAdminManager.tsx");
-  const handlerStart = adminSource.indexOf("function handleExportPhotoAdjustmentChange");
-  const resetStart = adminSource.indexOf("function handleExportPhotoAdjustmentReset", handlerStart);
-  const handlerBlock = adminSource.slice(handlerStart, resetStart);
+test("PNG export no longer depends on a server-side headless browser", () => {
+  const clientSource = source("src/lib/leaderboard/export-client.ts");
 
-  expect(handlerStart).toBeGreaterThan(-1);
-  expect(handlerBlock).toContain("writeLocalExportPhotoAdjustment");
-  expect(handlerBlock).toMatch(/writeLocalExportPhotoAdjustment[\s\S]*scheduleExportPhotoAdjustmentAutosave/);
+  expect(clientSource).not.toContain("/api/export");
+  expect(clientSource).toContain("downloadExportFrame");
+
+  for (const componentPath of ["src/components/leaderboard/LeaderboardAdminManager.tsx"]) {
+    expect(source(componentPath)).not.toContain("/api/export");
+  }
 });
