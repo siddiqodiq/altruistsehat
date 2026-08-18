@@ -59,7 +59,7 @@ function authAttributes({ defaultPassword, emailDomain, name, username }) {
 async function main() {
   const apply = process.argv.includes("--apply");
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim() || process.env.SUPABASE_URL?.trim();
-  const serviceRoleKey = requireEnv("SUPABASE_SERVICE_ROLE_KEY");
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || requireEnv("SERVICE_ROLE_KEY");
   const defaultPassword = requireEnv("ATHLETE_DEFAULT_PASSWORD");
   const emailDomain = process.env.AUTH_USERNAME_EMAIL_DOMAIN?.trim() || DEFAULT_AUTH_USERNAME_EMAIL_DOMAIN;
 

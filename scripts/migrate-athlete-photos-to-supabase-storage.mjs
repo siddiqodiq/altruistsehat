@@ -296,7 +296,7 @@ async function main() {
     throw new Error("NEXT_PUBLIC_SUPABASE_URL or SUPABASE_URL is required.");
   }
 
-  const supabase = createClient(supabaseUrl, requireEnv("SUPABASE_SERVICE_ROLE_KEY"), {
+  const supabase = createClient(supabaseUrl, process.env.SUPABASE_SERVICE_ROLE_KEY?.trim() || requireEnv("SERVICE_ROLE_KEY"), {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
